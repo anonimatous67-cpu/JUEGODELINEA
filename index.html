@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuizGo - Juego de preguntas en vivo</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Outfit', system-ui, sans-serif; background-color: #0f051d; color: #fff; overflow: hidden; }
+  .bg-brand { background: linear-gradient(135deg, #46178f 0%, #2b0b5c 100%); }
+  .btn3d { box-shadow: 0 6px 0 rgba(0,0,0,.35), 0 10px 20px rgba(0,0,0,.2); transition: transform .08s, filter .08s; }
+  .btn3d:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,.35), 0 5px 10px rgba(0,0,0,.2); filter: brightness(.95); }
+  .pop { animation: pop .4s cubic-bezier(0.175, 0.885, 0.32, 1.275) both; }
+  @keyframes pop { 0% { transform: scale(.5); opacity: 0 } 100% { transform: scale(1); opacity: 1 } }
+  .bar { transition: height .6s ease, width .2s linear; }
+  input[type=range] { width: 100%; height: 36px; accent-color: #46178f; }
+
+  /* ===== Personajes y Animaciones ===== */
+  .av-wrap { display: inline-block; transform-origin: 50% 90%; filter: drop-shadow(0 8px 12px rgba(0,0,0,.3)); }
+  .blink { transform-box: fill-box; transform-origin: center; animation: blink 4.5s infinite; }
+  @keyframes blink { 0%,92%,100% { transform: scaleY(1) } 95% { transform: scaleY(.1) } }
+  .av-an-0 { animation: av-bounce 1s ease-in-out infinite; }
+  @keyframes av-bounce { 0%,100% { transform: translateY(0) scale(1,1) } 20% { transform: translateY(0) scale(1.08,.92) } 50% { transform: translateY(-16%) scale(.95,1.05) } 80% { transform: translateY(0) scale(1.06,.94) } }
+  .av-an-1 { animation: av-float 3s ease-in-out infinite; }
+  @keyframes av-float { 0%,100% { transform: translateY(0) rotate(-3deg) } 50% { transform: translateY(-10%) rotate(3deg) } }
+  .av-an-2 { animation: av-wiggle .8s ease-in-out infinite; }
+  @keyframes av-wiggle { 0%,100% { transform: rotate(-9deg) } 50% { transform: rotate(9deg) } }
+  .av-an-3 { animation: av-spin 2.8s ease-in-out infinite; }
+  @keyframes av-spin { 0%,55% { transform: perspective(400px) rotateY(0) } 100% { transform: perspective(400px) rotateY(360deg) } }
+  .av-an-4 { animation: av-beat 1.1s ease-in-out infinite; }
+  @keyframes av-beat { 0%,60%,100% { transform: scale(1) } 15% { transform: scale(1.15) } 30% { transform: scale(1) } 45% { transform: scale(1.1) } }
+  .av-an-5 { animation: av-jelly 1.4s ease-in-out infinite; }
+  @keyframes av-jelly { 0%,100% { transform: scale(1,1) } 25% { transform: scale(.85,1.15) } 50% { transform: scale(1.15,.85) } 75% { transform: scale(.95,1.05) } }
+  
+  .glass { background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+  .glass-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+  .stage-bg { background: radial-gradient(circle at 50% 30%, #5b1fa6 0%, #290754 60%, #0d0221 100%); }
+
+  /* ===== Cara triste (puestos 4 en adelante) ===== */
+  .av-wrap.av-sad { filter: saturate(.5) brightness(.9) drop-shadow(0 6px 8px rgba(0,0,0,.3)); }
+  .av-an-sad { animation: av-sad 3.2s ease-in-out infinite; }
+  @keyframes av-sad { 0%,100% { transform: rotate(-3deg) translateY(0) scale(1,1) } 50% { transform: rotate(3deg) translateY(4%) scale(1,.95) } }
+  .tear { animation: tear 2.2s ease-in infinite; }
+  @keyframes tear { 0% { transform: translateY(-5px); opacity: 0 } 25% { opacity: 1 } 100% { transform: translateY(18px); opacity: 0 } }
+
+  /* ===== Fondos animados y efectos ===== */
+  .bubbles { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+  .bubbles i { position: absolute; bottom: -140px; left: var(--l); width: var(--s); height: var(--s); border-radius: 50%; background: radial-gradient(circle at 35% 35%, rgba(255,255,255,.3), rgba(255,255,255,.03)); animation: rise var(--d) linear infinite; animation-delay: var(--dl); }
+  @keyframes rise { to { transform: translateY(-130vh) translateX(40px); } }
+  .confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+  .confetti i { position: absolute; top: -30px; left: var(--l); width: 12px; height: 18px; border-radius: 3px; background: var(--c); animation: fall var(--d) linear infinite; animation-delay: var(--dl); }
+  @keyframes fall { to { transform: translateY(115vh) rotate(720deg); } }
+  .toast { position: fixed; left: 50%; z-index: 60; animation: toast 2.8s ease forwards; white-space: nowrap; }
+  @keyframes toast { 0% { opacity: 0; transform: translate(-50%, -40px) scale(.9) } 15%,82% { opacity: 1; transform: translate(-50%, 0) scale(1) } 100% { opacity: 0; transform: translate(-50%, -20px) scale(.9) } }
+  .slide-up { animation: slideUp .45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(30px) } to { opacity: 1; transform: none } }
+  .slide-in { animation: slideIn .45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-40px) } to { opacity: 1; transform: none } }
+  .dots::after { content: ''; animation: dots 1.4s steps(4, end) infinite; }
+  @keyframes dots { 0% { content: '' } 25% { content: '.' } 50% { content: '..' } 75% { content: '...' } }
+  .card-lift { transition: transform .25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .25s cubic-bezier(0.16, 1, 0.3, 1); }
+  .card-lift:hover { transform: translateY(-6px); box-shadow: 0 20px 40px rgba(120,40,250,.25); }
+  .glow { animation: glow 2s ease-in-out infinite; }
+  @keyframes glow { 0%,100% { box-shadow: 0 6px 0 #0f509e, 0 0 0 rgba(19,104,206,0) } 50% { box-shadow: 0 6px 0 #0f509e, 0 0 35px rgba(80,180,255,.9) } }
+  
+  /* Scrollbar personalizado */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
+</style>
+</head>
+<body class="h-screen w-screen overflow-hidden text-white" onclick="if(window.closeAllMenus) window.closeAllMenus()">
+
+<div id="app" class="w-full h-full flex flex-col items-center justify-center bg-brand text-white relative">
+  <div class="flex flex-col items-center gap-4">
+    <div class="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
+    <div class="text-xl font-bold tracking-wider animate-pulse">Conectando con QuizGo...</div>
+  </div>
+</div>
+
+<script>
+window.__started = false;
+setTimeout(function () {
+  if (window.__started) return;
+  var a = document.getElementById('app');
+  var local = location.protocol === 'file:' || location.protocol === 'content:';
+  a.className = 'w-full h-full flex flex-col items-center justify-center bg-brand text-white relative p-6 text-center';
+  a.innerHTML = '<div style="font-size:56px">⚠️</div><h1 style="font-size:26px;font-weight:900;margin:10px 0">No se pudo cargar el juego</h1>' +
+    '<p style="max-width:440px;opacity:.9;margin-bottom:16px;line-height:1.5">' +
+    (local ? 'Estás abriendo el archivo directamente desde tu equipo. Los navegadores bloquean bases de datos locales así. <b>Sube el archivo a un servidor web</b> o ábrelo desde un entorno compatible.'
+           : 'Revisa tu conexión a internet y asegúrate de que el navegador esté actualizado.') +
+    '</p><button onclick="location.reload()" style="background:#fff;color:#46178f;font-weight:900;padding:12px 28px;border-radius:12px;box-shadow:0 6px 0 rgba(0,0,0,.2)">Reintentar</button>';
+}, 10000);
+</script>
+
+<script type="module">
+window.__started = true;
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { initializeFirestore, doc, setDoc, getDoc, getDocs, collection, query, where, onSnapshot, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCnVH5hnu5wUVyHe4efuWFsigMQMwrGiik",
+  authDomain: "juego-en-linea-7ec9d.firebaseapp.com",
+  projectId: "juego-en-linea-7ec9d",
+  storageBucket: "juego-en-linea-7ec9d.firebasestorage.app",
+  messagingSenderId: "266462814776",
+  appId: "1:266462814776:web:d3e8ec37d9f35f51b6bccd"
+};
+const fbApp = initializeApp(firebaseConfig);
+const auth = initializeAuth(fbApp, { persistence: [indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence] });
+const db = initializeFirestore(fbApp, { experimentalAutoDetectLongPolling: true });
+
+// ================= UTILIDADES =================
+const $ = id => document.getElementById(id);
+const app = $('app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const gamesCol = () => collection(db, 'games');
+const playersCol = () => collection(db, 'players');
+const OPT = [{c:'#e21b3c',s:'#b0102b'},{c:'#1368ce',s:'#0f509e'},{c:'#d89e00',s:'#a87b00'},{c:'#26890c',s:'#1d6909'}];
+const shape = (i, s = 28) => {
+  const p = ['<polygon points="12,3 22,21 2,21"/>','<polygon points="12,2 22,12 12,22 2,12"/>','<circle cx="12" cy="12" r="10"/>','<rect x="3" y="3" width="18" height="18"/>'][i];
+  return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="white">${p}</svg>`;
+};
+const optIdx = (q, i) => q.type === 'tf' ? (i === 0 ? 1 : 0) : i;
+const optBox = (q, i, extra = '') => { const k = optIdx(q, i); return `style="background:${OPT[k].c};box-shadow:0 6px 0 ${OPT[k].s}" ${extra}`; };
+const visibleOpts = q => q.type === 'tf' ? [0, 1] : q.options.map((t, i) => String(t).trim() ? i : -1).filter(i => i >= 0);
+const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+const TYPES = {
+  quiz:   { n: 'Quiz', i: '🔲' },
+  tf:     { n: 'Verdadero o falso', i: '✔️' },
+  type:   { n: 'Respuesta corta', i: '📝' },
+  slider: { n: 'Slider numérico', i: '🎚️' },
+  poll:   { n: 'Encuesta', i: '📊' }
+};
+const mkQ = (type = 'quiz') => ({
+  type, text: '', image: '', time: 20, points: 'standard',
+  options: type === 'tf' ? ['Verdadero', 'Falso'] : ['', '', '', ''],
+  correct: 0, answers: [''], min: 0, max: 100, sliderCorrect: 50, margin: 5
+});
+const clone = o => JSON.parse(JSON.stringify(o));
+
+// ================= PERSONAJES =================
+const AV_COLORS = [['#ff5a5f','#c93a40'],['#ff9f1c','#cc7a00'],['#ffd23f','#c9a200'],['#4ecb71','#2e9a4f'],['#2ec4b6','#1b8f84'],['#4d9de0','#2f6fb0'],['#7b61ff','#5540c9'],['#c77dff','#9b4fd1'],['#ff7eb6','#d35a90'],['#a0aec0','#718096']];
+const AV_BODY_N = ['Blob', 'Gatito', 'Osito', 'Conejo', 'Robot', 'Fantasma'];
+const AV_EYE_N = ['Redondos', 'Felices', 'Brillantes', 'Guiño'];
+const AV_MOUTH_N = ['Sonrisa', 'Abierta', 'Gatuna', 'Lengua'];
+const AV_ACC_N = ['Nada', 'Corona', 'Lentes', 'Gafas sol', 'Gorro', 'Audífonos', 'Lazo'];
+const AV_AN_N = ['Saltarín', 'Flotante', 'Bailarín', 'Giratorio', 'Latido', 'Gelatina'];
+const DEF_AV = { b: 0, c: 5, e: 0, m: 0, a: 0, an: 0 };
+const BODIES = [
+  (c, d) => `<ellipse cx="50" cy="58" rx="36" ry="34" fill="${c}"/>`,
+  (c, d) => `<polygon points="16,42 20,8 46,26" fill="${c}"/><polygon points="84,42 80,8 54,26" fill="${c}"/><polygon points="23,34 24,18 38,28" fill="${d}"/><polygon points="77,34 76,18 62,28" fill="${d}"/><ellipse cx="50" cy="58" rx="36" ry="32" fill="${c}"/>`,
+  (c, d) => `<circle cx="22" cy="28" r="13" fill="${c}"/><circle cx="78" cy="28" r="13" fill="${c}"/><circle cx="22" cy="28" r="6" fill="${d}"/><circle cx="78" cy="28" r="6" fill="${d}"/><ellipse cx="50" cy="58" rx="36" ry="33" fill="${c}"/>`,
+  (c, d) => `<ellipse cx="32" cy="22" rx="8" ry="20" fill="${c}"/><ellipse cx="68" cy="22" rx="8" ry="20" fill="${c}"/><ellipse cx="32" cy="24" rx="3.5" ry="14" fill="${d}"/><ellipse cx="68" cy="24" rx="3.5" ry="14" fill="${d}"/><ellipse cx="50" cy="62" rx="35" ry="30" fill="${c}"/>`,
+  (c, d) => `<line x1="50" y1="10" x2="50" y2="26" stroke="${d}" stroke-width="3"/><circle cx="50" cy="9" r="5" fill="${d}"/><rect x="16" y="24" width="68" height="64" rx="18" fill="${c}"/><rect x="7" y="46" width="9" height="20" rx="3" fill="${d}"/><rect x="84" y="46" width="9" height="20" rx="3" fill="${d}"/>`,
+  (c, d) => `<path d="M16 92 V54 a34 34 0 0 1 68 0 V92 l-11.3 -8 l-11.3 8 l-11.4 -8 l-11.3 8 l-11.3 -8 l-11.3 8 z" fill="${c}"/>`
+];
+const EYES = [
+  `<circle cx="37" cy="54" r="7" fill="#fff"/><circle cx="63" cy="54" r="7" fill="#fff"/><circle cx="38" cy="55" r="3.5" fill="#222"/><circle cx="64" cy="55" r="3.5" fill="#222"/>`,
+  `<path d="M30 57 q7 -10 14 0 M56 57 q7 -10 14 0" stroke="#222" stroke-width="3.5" fill="none" stroke-linecap="round"/>`,
+  `<circle cx="37" cy="54" r="7.5" fill="#222"/><circle cx="63" cy="54" r="7.5" fill="#222"/><circle cx="39.5" cy="51.5" r="2.6" fill="#fff"/><circle cx="65.5" cy="51.5" r="2.6" fill="#fff"/><circle cx="35" cy="57" r="1.2" fill="#fff"/><circle cx="61" cy="57" r="1.2" fill="#fff"/>`,
+  `<path d="M30 54 h14" stroke="#222" stroke-width="3.5" stroke-linecap="round"/><circle cx="63" cy="54" r="6.5" fill="#222"/><circle cx="65" cy="52" r="2" fill="#fff"/>`
+];
+const MOUTHS = [
+  `<path d="M40 70 q10 10 20 0" stroke="#222" stroke-width="3.5" fill="none" stroke-linecap="round"/>`,
+  `<path d="M40 68 q10 17 20 0 z" fill="#7a1d2b"/><path d="M44 74 q6 5 12 0" fill="#ff6b8b"/>`,
+  `<path d="M41 69 q4.5 6 9 0 q4.5 6 9 0" stroke="#222" stroke-width="3" fill="none" stroke-linecap="round"/>`,
+  `<path d="M40 69 q10 10 20 0" stroke="#222" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M46 75 q4 9 8 0 z" fill="#ff6b8b"/>`
+];
+const ACCS = [
+  ``,
+  `<polygon points="32,28 32,10 42,20 50,5 58,20 68,10 68,28" fill="#ffc82c" stroke="#e0a100" stroke-width="2" stroke-linejoin="round"/><circle cx="50" cy="8" r="2.5" fill="#fff"/>`,
+  `<circle cx="37" cy="54" r="11" stroke="#222" stroke-width="3" fill="rgba(255,255,255,.25)"/><circle cx="63" cy="54" r="11" stroke="#222" stroke-width="3" fill="rgba(255,255,255,.25)"/><path d="M48 54 h4" stroke="#222" stroke-width="3"/>`,
+  `<rect x="24" y="45" width="25" height="16" rx="7" fill="#111"/><rect x="51" y="45" width="25" height="16" rx="7" fill="#111"/><path d="M48 52 h4" stroke="#111" stroke-width="3"/><path d="M28 49 l6 0" stroke="#fff" stroke-width="2" opacity=".5"/>`,
+  `<polygon points="50,2 36,30 64,30" fill="#ff5ea8"/><circle cx="50" cy="4" r="4.5" fill="#fff"/><circle cx="46" cy="18" r="2" fill="#fff"/><circle cx="54" cy="24" r="2" fill="#ffd23f"/>`,
+  `<path d="M16 56 a34 34 0 0 1 68 0" stroke="#2d2d3a" stroke-width="5" fill="none"/><rect x="9" y="48" width="13" height="22" rx="6" fill="#2d2d3a"/><rect x="78" y="48" width="13" height="22" rx="6" fill="#2d2d3a"/>`,
+  `<polygon points="72,30 86,21 86,40" fill="#ff5ea8"/><polygon points="72,30 58,21 58,40" fill="#ff5ea8"/><circle cx="72" cy="30" r="4.5" fill="#d6336c"/>`
+];
+const EYES_SAD = `<circle cx="37" cy="55" r="6.5" fill="#fff"/><circle cx="63" cy="55" r="6.5" fill="#fff"/><circle cx="37" cy="57.5" r="3.4" fill="#222"/><circle cx="63" cy="57.5" r="3.4" fill="#222"/><circle cx="38.2" cy="56.2" r="1.1" fill="#fff"/><circle cx="64.2" cy="56.2" r="1.1" fill="#fff"/><path d="M29 50 L45 44.5 M71 50 L55 44.5" stroke="#222" stroke-width="3" stroke-linecap="round"/>`;
+const MOUTH_SAD = `<path d="M41 75 q9 -9 18 0" stroke="#222" stroke-width="3.5" fill="none" stroke-linecap="round"/>`;
+const TEAR = `<path class="tear" d="M31 62 q-5 8 0 11 q5 -3 0 -11z" fill="#6ec6ff" stroke="#3b9be0" stroke-width=".8"/>`;
+function avatarSVG(av, mood) {
+  const a = { ...DEF_AV, ...(av || {}) };
+  const sad = mood === 'sad';
+  const [c, d] = AV_COLORS[a.c] || AV_COLORS[0];
+  return `<svg viewBox="0 0 100 100" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">${(BODIES[a.b] || BODIES[0])(c, d)}<ellipse cx="38" cy="40" rx="11" ry="5" fill="#fff" opacity=".25" transform="rotate(-25 38 40)"/><ellipse cx="25" cy="66" rx="6" ry="4" fill="#ff7a9c" opacity="${sad ? .2 : .45}"/><ellipse cx="75" cy="66" rx="6" ry="4" fill="#ff7a9c" opacity="${sad ? .2 : .45}"/><g class="blink">${sad ? EYES_SAD : (EYES[a.e] || EYES[0])}</g>${sad ? MOUTH_SAD + TEAR : (MOUTHS[a.m] || MOUTHS[0])}${ACCS[a.a] || ''}</svg>`;
+}
+function avatarHTML(av, size = 64, anim = true, mood = '') {
+  const a = { ...DEF_AV, ...(av || {}) };
+  const sad = mood === 'sad';
+  return `<div class="av-wrap ${sad ? 'av-sad av-an-sad' : anim ? 'av-an-' + (a.an || 0) : ''}" style="width:${size}px;height:${size}px">${avatarSVG(a, mood)}</div>`;
+}
+function bubbles() {
+  return `<div class="bubbles">${Array.from({ length: 18 }, () => `<i style="--s:${35 + Math.random() * 100 | 0}px;--l:${Math.random() * 100 | 0}%;--d:${10 + Math.random() * 12 | 0}s;--dl:-${Math.random() * 15 | 0}s"></i>`).join('')}</div>`;
+}
+function confetti() {
+  const cols = ['#ffc82c', '#ff5a5f', '#4ecb71', '#4d9de0', '#c77dff', '#ff7eb6'];
+  return `<div class="confetti">${Array.from({ length: 40 }, () => `<i style="--l:${Math.random() * 100 | 0}%;--c:${cols[Math.random() * 6 | 0]};--d:${4 + Math.random() * 5 | 0}s;--dl:-${Math.random() * 8 | 0}s"></i>`).join('')}</div>`;
+}
+function toast(html) {
+  const t = document.createElement('div');
+  t.className = 'toast rounded-full px-6 py-3 flex items-center gap-3 text-white font-extrabold shadow-2xl glass';
+  t.style.border = '1px solid rgba(255,255,255,0.4)';
+  t.style.top = (20 + document.querySelectorAll('.toast').length * 64) + 'px';
+  t.innerHTML = html; document.body.appendChild(t); setTimeout(() => t.remove(), 2900);
+}
+const CARD_GRADS = [['#46178f', '#9b51e0'], ['#1368ce', '#2f80ed'], ['#e21b3c', '#eb5757'], ['#d89e00', '#f2c94c'], ['#26890c', '#27ae60'], ['#0f8b8d', '#20b2aa']];
+const rnd = n => Math.floor(Math.random() * n);
+const avRand = () => ({ b: rnd(6), c: rnd(10), e: rnd(4), m: rnd(4), a: rnd(7), an: rnd(6) });
+const loadAvatar = () => { try { const a = JSON.parse(localStorage.getItem('quizgo_avatar') || 'null'); if (a) return { ...DEF_AV, ...a }; } catch (e) {} return avRand(); };
+const saveAvatar = a => { try { localStorage.setItem('quizgo_avatar', JSON.stringify(a)); } catch (e) {} };
+
+let AVED = null;
+function renderAvatarEditor() {
+  const { av, nick, mode } = AVED;
+  const prev = $('av-opts'), top = prev ? prev.scrollTop : 0;
+  const col = AV_COLORS[av.c][0];
+  const tile = (sel, fn, inner, label = '') => `<button onclick="${fn}" class="rounded-2xl p-2 border-2 transition flex flex-col items-center ${sel ? 'border-white bg-white/20 scale-105 shadow-lg' : 'border-white/10 bg-white/5 hover:bg-white/15'}">${inner}${label ? `<span class="text-[11px] font-bold mt-1.5 opacity-90">${label}</span>` : ''}</button>`;
+  const mini = (o, anim = false) => avatarHTML({ ...av, ...o }, 58, anim);
+  const sec = (t, inner, cols = 'grid-cols-3 sm:grid-cols-6') => `<div><h3 class="text-xs font-black tracking-widest uppercase opacity-75 mb-2.5">${t}</h3><div class="grid ${cols} gap-2.5">${inner}</div></div>`;
+  screen(`
+    <div class="shrink-0 text-center pt-5 pb-2"><h1 class="text-3xl font-black tracking-tight">Crea tu personaje</h1></div>
+    <div class="flex-1 flex flex-col md:flex-row min-h-0 px-4 max-w-6xl mx-auto w-full gap-6">
+      <div class="md:w-2/5 flex flex-col items-center justify-center p-6 shrink-0 glass rounded-3xl my-2">
+        <div class="relative">
+          <div class="absolute inset-0 rounded-full blur-3xl opacity-60" style="background:${col}"></div>
+          <div class="relative">${avatarHTML(av, 200)}</div>
+        </div>
+        <div class="mt-5 text-3xl font-black">${esc(nick)}</div>
+        <div class="text-sm font-semibold opacity-75 mb-5">${AV_BODY_N[av.b]} · ${AV_AN_N[av.an]}</div>
+        <button onclick="avRandom()" class="glass px-6 py-2.5 rounded-full font-bold text-sm hover:bg-white/25 transition">🎲 Sorpréndeme</button>
+      </div>
+      <div id="av-opts" class="flex-1 overflow-y-auto p-5 md:p-6 space-y-6 glass rounded-3xl my-2">
+        ${sec('Personaje', AV_BODY_N.map((n, i) => tile(av.b === i, `avSet('b',${i})`, mini({ b: i }), n)).join(''))}
+        ${sec('Color', AV_COLORS.map(([c, d], i) => `<button onclick="avSet('c',${i})" class="w-11 h-11 rounded-full border-[3px] transition ${av.c === i ? 'border-white scale-110 shadow-lg' : 'border-transparent'}" style="background:linear-gradient(135deg,${c},${d})"></button>`).join(''), 'grid-cols-5 sm:grid-cols-10')}
+        ${sec('Ojos', AV_EYE_N.map((n, i) => tile(av.e === i, `avSet('e',${i})`, mini({ e: i }), n)).join(''), 'grid-cols-4')}
+        ${sec('Boca', AV_MOUTH_N.map((n, i) => tile(av.m === i, `avSet('m',${i})`, mini({ m: i }), n)).join(''), 'grid-cols-4')}
+        ${sec('Accesorio', AV_ACC_N.map((n, i) => tile(av.a === i, `avSet('a',${i})`, mini({ a: i }), n)).join(''), 'grid-cols-4 sm:grid-cols-7')}
+        ${sec('Animación', AV_AN_N.map((n, i) => tile(av.an === i, `avSet('an',${i})`, mini({ an: i }, true), n)).join(''))}
+      </div>
+    </div>
+    <div class="shrink-0 p-4 flex justify-between items-center max-w-6xl mx-auto w-full">
+      <button onclick="avCancel()" class="px-6 py-2.5 font-bold rounded-xl glass hover:bg-white/20 transition">${mode === 'join' ? 'Volver' : 'Cancelar'}</button>
+      <button onclick="avConfirm()" class="px-10 py-3.5 font-black text-lg text-white rounded-2xl bg-[#26890c] btn3d">${mode === 'join' ? '¡Entrar al juego!' : 'Guardar personaje'}</button>
+    </div>`, 'stage-bg text-white');
+  const n = $('av-opts'); if (n) n.scrollTop = top;
+}
+window.avSet = (k, v) => { AVED.av[k] = v; renderAvatarEditor(); };
+window.avRandom = () => { AVED.av = avRand(); renderAvatarEditor(); };
+window.avCancel = () => {
+  const m = AVED.mode; AVED = null;
+  if (m === 'join') showLanding(); else if (Pl) { Pl.key = ''; playerRender(); }
+};
+window.avConfirm = async () => {
+  saveAvatar(AVED.av);
+  if (AVED.mode === 'join') return doJoin();
+  try { await updateDoc(doc(playersCol(), Pl.id), { avatar: AVED.av }); } catch (e) { alert('No se pudo guardar: ' + e.message); }
+  AVED = null; if (Pl) { Pl.key = ''; playerRender(); }
+};
+window.avChange = () => { if (!Pl || !Pl.me) return; AVED = { av: { ...DEF_AV, ...(Pl.me.avatar || {}) }, mode: 'edit', nick: Pl.me.nickname }; renderAvatarEditor(); };
+
+function screen(html, cls = 'bg-brand text-white') {
+  app.className = `w-full h-full flex flex-col relative overflow-auto ${cls}`;
+  app.innerHTML = html;
+}
+
+function isCorrect(q, a) {
+  if (a === null || a === undefined) return false;
+  if (q.type === 'quiz' || q.type === 'tf') return Number(a) === q.correct;
+  if (q.type === 'type') return q.answers.some(x => norm(x) && norm(x) === norm(a));
+  if (q.type === 'slider') return Math.abs(Number(a) - q.sliderCorrect) <= q.margin;
+  return false;
+}
+function correctText(q) {
+  if (q.type === 'quiz' || q.type === 'tf') return q.options[q.correct];
+  if (q.type === 'type') return q.answers.filter(x => x.trim()).join(' / ');
+  if (q.type === 'slider') return q.margin > 0 ? `${q.sliderCorrect} (±${q.margin})` : String(q.sliderCorrect);
+  return '';
+}
+function calcPoints(q, correct, ms, prev) {
+  if (q.type === 'poll') return { pts: 0, bonus: 0, streak: prev };
+  if (!correct) return { pts: 0, bonus: 0, streak: 0 };
+  const streak = prev + 1;
+  if (q.points === 'none') return { pts: 0, bonus: 0, streak };
+  let pts = Math.round(1000 * (1 - Math.min(1, ms / (q.time * 1000)) / 2));
+  if (q.points === 'double') pts *= 2;
+  const bonus = streak >= 2 ? (Math.min(streak, 6) - 1) * 100 : 0;
+  return { pts, bonus, streak };
+}
+
+// ================= GENERADOR DE 20 PREGUNTAS POR CADA CURSO SOLICITADO =================
+const LS = 'quizgo_quizzes_all_v5';
+function loadQuizzes() {
+  const makeComu20 = () => [
+    { t: '¿Cuál es un sustantivo propio?', o: ['perro', 'María', 'mesa', 'lápiz'], c: 1 },
+    { t: '¿Qué palabra está escrita correctamente?', o: ['zanahoria', 'sanahoria', 'sanaoria', 'zahanaoria'], c: 0 },
+    { t: '¿Cuál es el antónimo de "alegre"?', o: ['feliz', 'contento', 'triste', 'emocionado'], c: 2 },
+    { t: '¿Cuál es el sinónimo de "veloz"?', o: ['lento', 'rápido', 'pesado', 'débil'], c: 1 },
+    { t: '¿Qué signo se usa para hacer una pregunta?', o: ['!', '?', '.', ','], c: 1 },
+    { t: '¿Cuál es un artículo definido?', o: ['un', 'unos', 'el', 'unos'], c: 2 },
+    { t: '¿Cuál palabra es un verbo (acción)?', o: ['correr', 'azul', 'alto', 'mesa'], c: 0 },
+    { t: '¿Cuál es el plural de "lápiz"?', o: ['lápizes', 'lápices', 'lapiceros', 'lápizs'], c: 1 },
+    { t: '¿Qué palabra es aguda con tilde?', o: ['árbol', 'lámpara', 'compás', 'mesa'], c: 2 },
+    { t: '¿Cuál es el sujeto en: "El gato duerme"?', o: ['duerme', 'El gato', 'gato', 'El'], c: 1 },
+    { t: '¿Cuál palabra es un adjetivo calificativo?', o: ['dulce', 'jugar', 'correr', 'papel'], c: 0 },
+    { t: '¿Cuántas sílabas tiene "computadora"?', o: ['3', '4', '5', '6'], c: 1 },
+    { t: '¿Qué palabra empieza con el dígrafo "ch"?', o: ['carro', 'chocolate', 'zapato', 'sol'], c: 1 },
+    { t: '¿Cuál es el diminutivo de "casa"?', o: ['casota', 'casita', 'casona', 'casucha'], c: 1 },
+    { t: '¿Cuál es la sílaba tónica en "lápiz"?', o: ['lá', 'piz', 'ambas', 'ninguna'], c: 0 },
+    { t: '¿Qué tipo de texto es una receta de cocina?', o: ['Instructivo', 'Narrativo', 'Poético', 'Informativo'], c: 0 },
+    { t: '¿Cuál es un sinónimo de "hermoso"?', o: ['feo', 'bello', 'pequeño', 'oscuro'], c: 1 },
+    { t: '¿Qué palabra es aguda?', o: ['lápiz', 'camión', 'mesa', 'árbol'], c: 1 },
+    { t: '¿Cuál es el antónimo de "frío"?', o: ['helado', 'caliente', 'tibio', 'fresco'], c: 1 },
+    { t: '¿Cómo se le llama al autor de un poema?', o: ['novelista', 'poeta', 'pintor', 'cantante'], c: 1 }
+  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
+
+  const makeMath20 = () => [
+    { t: '¿Cuánto es 450 + 230?', o: ['670', '680', '700', '650'], c: 1 },
+    { t: '¿Cuánto es 850 - 320?', o: ['530', '520', '430', '550'], c: 0 },
+    { t: '¿Cuánto es 12 x 8?', o: ['86', '94', '96', '108'], c: 2 },
+    { t: '¿Cuánto es 144 ÷ 12?', o: ['10', '11', '12', '14'], c: 2 },
+    { t: '¿Cuál es el mínimo común múltiplo (MCM) de 4 y 6?', o: ['10', '12', '24', '8'], c: 1 },
+    { t: 'Resuelve la ecuación: x + 5 = 12', o: ['x = 5', 'x = 7', 'x = 8', 'x = 6'], c: 1 },
+    { t: '¿Cuántos lados tiene un pentágono?', o: ['4', '5', '6', '7'], c: 1 },
+    { t: '¿Cuál es el área de un cuadrado de 5 cm de lado?', o: ['20 cm²', '25 cm²', '10 cm²', '15 cm²'], c: 1 },
+    { t: 'Calcula el promedio (media) de: 10, 12, 14 y 16', o: ['12', '13', '14', '15'], c: 1 },
+    { t: '¿Cuánto es 3 al cuadrado (3²)?', o: ['6', '9', '8', '12'], c: 1 },
+    { t: '¿Qué fracción es equivalente a 1/2?', o: ['2/4', '1/3', '3/5', '2/3'], c: 0 },
+    { t: '¿Cuántos mililitros hay en 2 litros?', o: ['200 ml', '1000 ml', '2000 ml', '500 ml'], c: 2 },
+    { t: 'Si un artículo cuesta $80 y tiene 20% de descuento, ¿cuánto pagas?', o: ['+$20', '$60', '$64', '$70'], c: 2 },
+    { t: '¿Cuál es el perímetro de un rectángulo de base 8 cm y altura 4 cm?', o: ['24 cm', '32 cm', '12 cm', '16 cm'], c: 0 },
+    { t: '¿Qué número sigue en la secuencia: 3, 6, 12, 24, ...?', o: ['30', '36', '48', '42'], c: 2 },
+    { t: '¿Cuál es el máximo común divisor (MCD) de 12 y 18?', o: ['3', '6', '2', '9'], c: 1 },
+    { t: '¿Cómo se lee el número 45,670 en el sistema decimal?', o: ['Cuarenta y cinco mil seiscientos setenta', 'Cuatro mil quinientos sesenta y siete', 'Cuatrocientos cincuenta mil', 'Cuarenta mil'], c: 0 },
+    { t: '¿Cuántos grados suman los ángulos internos de un triángulo?', o: ['90°', '180°', '360°', '270°'], c: 1 },
+    { t: 'Resuelve: 5 + 3 x 4 (jerarquía de operaciones)', o: ['32', '17', '20', '23'], c: 1 },
+    { t: '¿Qué tipo de ángulo mide exactamente 90°?', o: ['Agudo', 'Recto', 'Obtuso', 'Llano'], c: 1 }
+  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
+
+  const makeSocial20 = () => [
+    { t: '¿En qué continente se encuentra el Perú?', o: ['África', 'América', 'Asia', 'Europa'], c: 1 },
+    { t: '¿Cuál es la capital del Perú?', o: ['Arequipa', 'Cusco', 'Lima', 'Trujillo'], c: 2 },
+    { t: '¿Cuáles son las 4 regiones naturales tradicionales del Perú?', o: ['Mar Peruano, Costa, Sierra, Selva', 'Norte, Sur, Este, Oeste', 'Costa, Valle, Puna, Rupa Rupa', 'Selva alta, Selva baja, Sierra, Costa'], c: 0 },
+    { t: '¿Quién proclamó la independencia del Perú?', o: ['Simón Bolívar', 'Don José de San Martín', 'Miguel Grau', 'Túpac Amaru II'], c: 1 },
+    { t: '¿Qué cultura preínca construyó las famosas Líneas de Nazca?', o: ['Chavín', 'Paracas', 'Nazca', 'Chimú'], c: 2 },
+    { t: '¿Cuáles son los tres poderes del Estado peruano?', o: ['Municipal, Regional, Central', 'Ejecutivo, Legislativo, Judicial', 'Presidente, Congreso, Policía', 'Fuerzas Armadas, Iglesia, Gobierno'], c: 1 },
+    { t: '¿Qué organismo del Estado recauda los tributos en el Perú?', o: ['SUNAT', 'RENIEC', 'BCP', 'INEI'], c: 0 },
+    { t: '¿Qué movimiento de la Tierra origina el día y la noche?', o: ['Traslación', 'Rotación', 'Eclipses', 'Gravitación'], c: 1 },
+    { t: '¿Cuál es el río más largo y caudaloso del mundo?', o: ['Nilo', 'Amazonas', 'Mississippi', 'Rímac'], c: 1 },
+    { t: '¿Qué cultura preínca es famosa por sus trepanaciones craneanas?', o: ['Moche', 'Paracas', 'Wari', 'Tiahuanaco'], c: 1 },
+    { t: '¿En qué año se proclamó la Independencia del Perú?', o: ['1810', '1821', '1824', '1900'], c: 1 },
+    { t: '¿Qué elemento de seguridad debes tener siempre listo ante sismos?', o: ['Mochila de emergencia', 'Una televisión', 'Dinero en efectivo solamente', 'Sombrilla'], c: 0 },
+    { t: '¿Cómo se llaman las líneas imaginarias horizontales usadas en mapas?', o: ['Meridianos', 'Paralelos (Líneas de latitud)', 'Eje terrestre', 'Línea de fecha'], c: 1 },
+    { t: '¿Cuál es el pico o montaña más alta del Perú?', o: ['Everest', 'Huascarán', 'Misti', 'Alpamayo'], c: 1 },
+    { t: '¿Qué institución protege los derechos de los niños en el Perú?', o: ['DEMUNA', 'SUNAT', 'INEI', 'Congreso'], c: 0 },
+    { t: '¿Qué imperio precolombino tuvo como capital al Cusco?', o: ['Imperio Azteca', 'Imperio Inca', 'Imperio Maya', 'Cultura Wari'], c: 1 },
+    { t: '¿Cuál es el océano que baña las costas del Perú por el oeste?', o: ['Océano Atlántico', 'Océano Pacífico', 'Océano Índico', 'Océano Ártico'], c: 1 },
+    { t: '¿Qué significan las siglas DNI?', o: ['Documento Nacional de Identidad', 'Dirección Nacional de Investigación', 'Deberes Naturales Individuales', 'Departamento Nutricional Infantil'], c: 0 },
+    { t: '¿Qué héroe peruano combatió en el Monitor Huáscar en 1879?', o: ['Francisco Bolognesi', 'Miguel Grau', 'Alfonso Ugarte', 'José Olaya'], c: 1 },
+    { t: '¿Qué actividad económica pertenece al sector primario?', o: ['Agricultura y minería', 'Comercio y bancos', 'Educación y salud', 'Industria textil'], c: 0 }
+  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
+
+  const makeCiencia20 = () => [
+    { t: '¿Qué órgano del cuerpo humano bombea la sangre?', o: ['Cerebro', 'Pulmones', 'Corazón', 'Estómago'], c: 2 },
+    { t: '¿Cuál es la unidad básica y fundamental de los seres vivos?', o: ['El átomo', 'La célula', 'El tejido', 'El órgano'], c: 1 },
+    { t: '¿Cómo se llama el proceso por el cual las plantas fabrican su alimento?', o: ['Respiración', 'Fotosíntesis', 'Digestión', 'Transpiración'], c: 1 },
+    { t: '¿En qué estados principales se presenta la materia en la naturaleza?', o: ['Sólido, líquido y gaseoso', 'Frío, tibio y caliente', 'Claro, oscuro y transparente', 'Pesado y ligero'], c: 0 },
+    { t: '¿Qué gas de la atmósfera absorben los seres humanos al respirar?', o: ['Dióxido de carbono', 'Oxígeno', 'Nitrógeno', 'Helio'], c: 1 },
+    { t: '¿Qué tipo de animal es la ballena?', o: ['Pez', 'Reptil', 'Mamífero', 'Anfibio'], c: 2 },
+    { t: '¿Cuál es el hueso más largo del cuerpo humano?', o: ['Húmero', 'Fémur', 'Cráneo', 'Tibia'], c: 1 },
+    { t: '¿Qué reino de la naturaleza agrupa a las bacterias y microorganismos unicelulares?', o: ['Reino Fungi', 'Reino Monera', 'Reino Plantae', 'Reino Animalia'], c: 1 },
+    { t: '¿Cómo se denominan los animales que nacen de huevos?', o: ['Vivíparos', 'Ovíparos', 'Mamíferos', 'Marsupiales'], c: 1 },
+    { t: '¿Qué capa gaseosa rodea y protege a la Tierra?', o: ['Litosfera', 'Atmósfera', 'Hidrósfera', 'Núcleo'], c: 1 },
+    { t: '¿Cuál es el planeta más grande del Sistema Solar?', o: ['Saturno', 'Júpiter', 'Tierra', 'Marte'], c: 1 },
+    { t: '¿Qué sentido humano nos permite percibir los olores?', o: ['Gusto', 'Olfato', 'Tacto', 'Vista'], c: 1 },
+    { t: '¿Qué fenómeno causa el calentamiento global excesivo en la Tierra?', o: ['Efecto invernadero amplificado', 'La lluvia de estrellas', 'Las mareas altas', 'El viento solar'], c: 0 },
+    { t: '¿Qué órgano controla el sistema nervioso central y los pensamientos?', o: ['La médula espinal', 'El cerebro', 'El corazón', 'El hígado'], c: 1 },
+    { t: '¿Cómo se llaman las tres R del cuidado ambiental?', o: ['Rezar, Repasar, Rediseñar', 'Reducir, Reutilizar, Reciclar', 'Romper, Rastrear, Responder', 'Reunir, Regar, Reparar'], c: 1 },
+    { t: '¿Qué son los hongos y las setas?', o: ['Plantas sin flores', 'Organismos del Reino Fungi', 'Bacterias dañinas', 'Algas marinas'], c: 1 },
+    { t: '¿Qué fuerza invisible atrae a los objetos hacia el centro de la Tierra?', o: ['El magnetismo', 'La gravedad', 'La electricidad', 'La fricción'], c: 1 },
+    { t: '¿Qué vitamina nos proporciona principalmente la exposición solar matutina y alimentos como la leche?', o: ['Vitamina C', 'Vitamina D', 'Vitamina A', 'Vitamina B'], c: 1 },
+    { t: '¿Cómo se clasifican los animales según su columna vertebral?', o: ['Grandes y pequeños', 'Vertebrados e invertebrados', 'Terrestres y acuáticos', 'Salvajes y domésticos'], c: 1 },
+    { t: '¿Qué método físico se usa para separar agua de arena en una mezcla heterogénea?', o: ['Filtración', 'Evaporación', 'Imantación', 'Destilación'], c: 0 }
+  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
+
+  const makeArte20 = () => [
+    { t: '¿Cuáles son los tres colores primarios tradicionales en pintura?', o: ['Rojo, amarillo y azul', 'Verde, naranja y morado', 'Blanco, negro y gris', 'Rosa, celeste y marrón'], c: 0 },
+    { t: '¿Qué color se obtiene al mezclar el color azul y el amarillo?', o: ['Naranja', 'Verde', 'Morado', 'Marrón'], c: 1 },
+    { t: '¿Cómo se llaman los colores opuestos en el círculo cromático?', o: ['Colores primarios', 'Colores complementarios', 'Colores neutros', 'Colores pasteles'], c: 1 },
+    { t: '¿Qué instrumento musical peruano de percusión es un cajón de madera?', o: ['La quena', 'El cajón peruano', 'La zampoña', 'El charango'], c: 1 },
+    { t: '¿Qué danza peruana de la costa es alegre, marinera de pañuelo y coqueteo?', o: ['El huayno', 'La marinera norteña', 'La diablada', 'El festejo'], c: 1 },
+    { t: '¿Qué elemento artístico bidimensional delimita formas y contornos?', o: ['El volumen', 'La línea', 'La textura', 'El espacio'], c: 1 },
+    { t: '¿Qué técnica artística consiste en pegar recortes de papel o tela sobre una superficie?', o: ['El grabado', 'El collage', 'La acuarela', 'El modelado'], c: 1 },
+    { t: '¿Qué son los retablos ayacuchanos en la cultura peruana?', o: ['Cajas portátiles de madera con esculturas religiosas o costumbristas', 'Pinturas rupestres rupestres', 'Instrumentos de viento', 'Tejidos de vicuña'], c: 0 },
+    { t: '¿Cuál de los siguientes es un instrumento de viento andino peruano?', o: ['La guitarra', 'La quena', 'El cajón', 'El timbal'], c: 1 },
+    { t: '¿Qué nombre recibe el arte de doblar papel sin cortar ni pegar (origen japonés)?', o: ['Origami', 'Cerámica', 'Muralismo', 'Xilografía'], c: 0 },
+    { t: '¿Cuáles son considerados colores cálidos?', o: ['Azul, verde y morado', 'Rojo, amarillo y anaranjado', 'Blanco y negro', 'Gris y azul marino'], c: 1 },
+    { t: '¿Qué disciplina artística combina la expresión corporal, la voz y la actuación en un escenario?', o: ['El teatro', 'La arquitectura', 'La escultura', 'La orfebrería'], c: 0 },
+    { t: '¿Qué danza tradicional de la sierra se baila zapateando con tunos coloridos y pañuelos o arcos?', o: ['El huayno', 'La marinera limeña', 'La danza de tijeras', 'El festejo afro'], c: 0 },
+    { t: '¿Qué textura se puede percibir pasando el dedo por una superficie rugosa o lisa?', o: ['Textura táctil', 'Textura virtual', 'Textura acústica', 'Textura numérica'], c: 0 },
+    { t: '¿Qué material se modela fácilmente con las manos para crear figuras en 3D?', o: ['Plastilina o arcilla', 'Papel bond', 'Cartón piedra', 'Vidrio templado'], c: 0 },
+    { t: '¿Qué pintor o artista usa acuarelas o témperas para plasmar paisajes?', o: ['Un pintor', 'Un escultor', 'Un arquitecto', 'Un músico'], c: 0 },
+    { t: '¿Cómo se le llama al ritmo y velocidad constante en la música?', o: ['El pulso y el tempo', 'El volumen', 'La afinación', 'El silencio absoluto'], c: 0 },
+    { t: '¿Qué danza de la selva peruana imita los movimientos de la anaconda y la alegría amazónica?', o: ['La danza de la boa', 'El huaylas', 'La marinera', 'El huaino'], c: 0 },
+    { t: '¿Qué color transmite comúnmente tranquilidad, frialdad o frescura?', o: ['Azul', 'Rojo encendido', 'Amarillo brillante', 'Naranja fuerte'], c: 0 },
+    { t: '¿Qué expresión artística representa la historia o mitos mediante títeres o marionetas?', o: ['Teatro de títeres', 'Danza contemporánea', 'Pintura al óleo', 'Canto lírico'], c: 0 }
+  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
+
+  const makeEdFisica20 = () => [
+    { t: '¿Qué debemos hacer antes de realizar ejercicio físico intenso?', o: ['Calentamiento y estiramiento muscular', 'Dormir inmediatamente', 'Comer una hamburguesa grasosa', 'Quedarse completamente quieto'], c: 0 },
+    { t: '¿Qué capacidad física nos permite mantener el cuerpo derecho y sin caernos?', o: ['El equilibrio', 'La velocidad extrema', 'La pereza', 'La vista lejana'], c: 0 },
+    { t: '¿Qué hábito saludable es fundamental durante y después de hacer deporte?', o: ['Hidratarnos tomando agua', 'Consumir bebidas gaseosas', 'No lavarse las manos', 'Evitar respirar'], c: 0 },
+    { t: '¿Qué significa la lateralidad en el esquema corporal?', o: ['Reconocer nuestro lado izquierdo y derecho', 'Medir la estatura', 'Saber cantar', 'Contar hasta diez'], c: 0 },
+    { t: '¿Cuál es un juego tradicional popular peruano?', o: ['Las escondidas o matagente', 'Videojuegos en red', 'Ver televisión', 'Manejar automóvil'], c: 0 },
+    { t: '¿Qué valor deportivo promueve el juego limpio y el respeto a las reglas?', o: ['Fair Play (Juego limpio)', 'Hacer trampa', 'Molestar al rival', 'Abandonar al equipo'], c: 0 },
+    { t: '¿Qué órgano del cuerpo bombea más rápido cuando hacemos educación física?', o: ['El corazón', 'El estómago', 'Los riñones', 'Los huesos'], c: 0 },
+    { t: '¿Cómo debe ser una postura corporal adecuada al sentarse en el aula?', o: ['Espalda recta y apoyada en el respaldo', 'Encorvado sobre la mesa', 'Acostado en el piso', 'Con los pies en la carpeta'], c: 0 },
+    { t: '¿Qué tipo de motricidad aplicamos al correr, saltar y trepar?', o: ['Motricidad gruesa', 'Motricidad fina con aguja', 'Ninguna', 'Solo lectura'], c: 0 },
+    { t: '¿Qué deporte se juega con un balón redondo usando los pies en una cancha de grass?', o: ['Fútbol', 'Vóley', 'Básquetbol', 'Natación'], c: 0 },
+    { t: '¿Qué deporte se juega pasando el balón por encima de una red alta usando las manos y antebrazos?', o: ['Voleibol (Vóley)', 'Fútbol', 'Atletismo', 'Lucha libre'], c: 0 },
+    { t: '¿Por qué es importante el trabajo en equipo en los deportes?', o: ['Para colaborar, apoyarnos y lograr metas juntos', 'Para discutir entre compañeros', 'Para competir solos', 'Para no hablar con nadie'], c: 0 },
+    { t: '¿Cuál es la función principal de la inspiración y espiración (respiración)?', o: ['Oxigenar nuestro cuerpo y expulsar dióxido de carbono', 'Enfriar el cabello', 'Cantar más fuerte', 'Cansarnos rápido'], c: 0 },
+    { t: '¿Qué destreza se practica en las carreras de velocidad en el atletismo?', o: ['Correr lo más rápido posible hacia la meta', 'Caminar muy lento', 'Dormir en la pista', 'Saltar en un pie'], c: 0 },
+    { t: '¿Qué debemos hacer con las manos antes de comer después de educación física?', o: ['Lavarlas con agua y jabón', 'Limpiarlas en el pantalón', 'No hacer nada', 'Tocar la tierra'], c: 0 },
+    { t: '¿Qué tipo de juegos priorizan la cooperación en lugar de la competencia destructiva?', o: ['Juegos cooperativos', 'Juegos de peleas', 'Juegos de insultos', 'Ninguno'], c: 0 },
+    { t: '¿Qué habilidad motriz fina se entrena al ensartar cuentas o dibujar con precisión?', o: ['Motricidad fina', 'Motricidad gruesa', 'Fuerza bruta', 'Velocidad de sprint'], c: 0 },
+    { t: '¿Cómo se mide el ritmo cardíaco aproximado tras una carrerita?', o: ['Tomándonos el pulso en la muñeca o cuello', 'Midiendo la frente', 'Escuchando los zapatos', 'Contando los parpadeos'], c: 0 },
+    { t: '¿Qué se debe evitar para prevenir lesiones musculares al hacer deporte?', o: ['Estirar bruscamente sin calentar', 'Tomar agua', 'Usar zapatillas adecuadas', 'Escuchar al profesor'], c: 0 },
+    { t: '¿Qué actitud debemos tener si nuestro equipo pierde un partido escolar?', o: ['Aceptar la derrota con hidalguía y felicitar al rival', 'Llorar e insultar', 'Pelear en la cancha', 'Romper la pelota'], c: 0 }
+  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
+
+  const makeReligiosa20 = () => [
+    { t: '¿Cómo se divide principalmente la estructura de la Biblia?', o: ['Antiguo y Nuevo Testamento', 'Primer y segundo tomo', 'Historia y poesía', 'Versos y capítulos cortos'], c: 0 },
+    { t: '¿Quién construyó el Arca para salvar a su familia y animales del diluvio?', o: ['Noé', 'Moisés', 'Abraham', 'David'], c: 0 },
+    { t: '¿Quién liberó al pueblo de Israel de Egipto y recibió los Mandamientos en el Sinaí?', o: ['Moisés', 'Noé', 'Adán', 'Salomón'], c: 0 },
+    { t: '¿En qué ciudad nació Jesús según la tradición navideña?', o: ['Belén', 'Nazaret', 'Jerusalén', 'Roma'], c: 0 },
+    { t: '¿Cuántos apóstoles principales escogió Jesús para su misión?', o: ['12', '7', '10', '40'], c: 0 },
+    { t: '¿Qué sacramento cristiano nos borra el pecado original y nos hace hijos de Dios?', o: ['El Bautismo', 'La Confirmación', 'El Matrimonio', 'El Orden Sagrado'], c: 0 },
+    { t: '¿Cómo se llama la famosa oración que enseñó Jesús a sus discípulos ("Padre nuestro...")?', o: ['El Padrenuestro', 'El Credo', 'El Avemaría', 'La Salve'], c: 0 },
+    { t: '¿Quién fue una famosa santa peruana de Lima, patrona de las Américas y Filipinas?', o: ['Santa Rosa de Lima', 'San Martín de Porres', 'San Juan Macías', 'Madre Teresa'], c: 0 },
+    { t: '¿Qué santo peruano mulato es conocido por barrer con humildad y compartir con los animales?', o: ['San Martín de Porres', 'Santa Rosa', 'San Francisco', 'Santo Toribio'], c: 0 },
+    { t: '¿Qué celebran los cristianos en el Domingo de Resurrección (Pascua)?', o: ['El triunfo de Jesús sobre la muerte', 'El nacimiento en el pesebre', 'El bautismo en el río Jordán', 'La última cena'], c: 0 },
+    { t: '¿Qué nos enseñó Jesús en la parábola del Buen Samaritano?', o: ['A amar y ayudar a nuestro prójimo necesitado', 'A pasar de largo ante los heridos', 'A cobrar impuestos', 'A construir murallas'], c: 0 },
+    { t: '¿Cuáles son los dos mandamientos principales de la ley de Dios según Jesús?', o: ['Amar a Dios sobre todas las cosas y al prójimo como a ti mismo', 'Estudiar y trabajar duro', 'Ganar dinero y viajar', 'Gritar y pelear'], c: 0 },
+    { t: '¿Quiénes fueron los padres terrenales de Jesús de Nazaret?', o: ['José y María', 'Abraham y Sara', 'Zacarías e Isabel', 'Joaquín y Ana'], c: 0 },
+    { t: '¿Qué representan los sacramentos de la Eucaristía (Primera Comunión)?', o: ['Recibir el cuerpo y la sangre de Cristo en el pan y el vino', 'Comer dulces en fiesta', 'Hacer una obra de teatro', 'Estudiar historia sagrada'], c: 0 },
+    { t: '¿Qué libros narran la vida, milagros, muerte y resurrección de Jesús?', o: ['Los cuatro Evangelios (Mateo, Marcos, Lucas, Juan)', 'El Génesis y el Éxodo', 'Los Salmos y Proverbios', 'El Apocalipsis'], c: 0 },
+    { t: '¿Qué valor cristiano nos anima a disculpar las ofensas de los demás?', o: ['El perdón y la reconciliación', 'El rencor', 'La venganza', 'La indiferencia'], c: 0 },
+    { t: '¿Cuál es el tiempo litúrgico de preparación espiritual previo a la Navidad?', o: ['El Adviento', 'La Cuaresma', 'Pascua', 'Pentecostés'], c: 0 },
+    { t: '¿Qué nos enseña Jesús a través de las Bienaventuranzas?', o: ['El camino hacia la verdadera felicidad y humildad ante Dios', 'Cómo ser ricos en la tierra', 'Cómo ganar batallas militares', 'Cómo construir castillos'], c: 0 },
+    { t: '¿Qué representa la cruz para los cristianos?', o: ['El símbolo del amor supremo y la redención de Jesús', 'Un adorno sin significado', 'Un instrumento de comercio', 'Una marca numérica'], c: 0 },
+    { t: '¿Cómo debemos tratar a la naturaleza y a la creación divina según la doctrina?', o: ['Cuidándola con respeto como casa común que Dios nos dio', 'Destruyéndola sin cuidado', 'Botando basura en los ríos', 'Quemando bosques'], c: 0 }
+  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
+
+  const makeEIB20 = () => [
+    { t: '¿Cómo se saluda cortésmente en castellano por las mañanas?', o: ['¡Buenos días!', '¡Buenas noches!', '¡Adiós!', '¡Hasta luego!'], c: 0 },
+    { t: '¿Qué palabra en castellano se usa para expresar agradecimiento?', o: ['Gracias', 'Por favor', 'Disculpa', 'Hola'], c: 0 },
+    { t: 'Si pides algo con educación en castellano, ¿qué palabra utilizas?', o: ['Por favor', 'Cállate', 'Rápido', 'Nunca'], c: 0 },
+    { t: '¿Cómo se llama en castellano el objeto con el que escribimos en el cuaderno (lápiz)?', o: ['Lápiz', 'Mesa', 'Silla', 'Ventana'], c: 0 },
+    { t: '¿Cuál es el significado en castellano de la palabra "Wasi" (en quechua)?', o: ['Casa', 'Perro', 'Agua', 'Sol'], c: 0 },
+    { t: '¿Cómo se dice en castellano cuando te despides para ir a descansar de noche?', o: ['Buenas noches', 'Buenos días', 'Hola', 'Buenos tardes'], c: 0 },
+    { t: '¿Cuál es el color del cielo en un día despejado expresado en castellano?', o: ['Azul', 'Rojo', 'Verde', 'Amarillo'], c: 0 },
+    { t: '¿Qué instrucción básica en el aula en castellano significa tomar asiento?', o: ['Siéntate', 'Corre', 'Sal afuera', 'Duerme'], c: 0 },
+    { t: '¿Cómo se llama en castellano el animal doméstico que ladra y cuida la casa?', o: ['El perro', 'El gato', 'El ave', 'El pez'], c: 0 },
+    { t: '¿Cómo se dice en castellano el número 10?', o: ['Diez', 'Cinco', 'Veinte', 'Cero'], c: 0 },
+    { t: '¿Qué fruta redonda y roja comemos comúnmente en castellano?', o: ['Manzana', 'Piedra', 'Madera', 'Zapato'], c: 0 },
+    { t: '¿Cómo se identifica en castellano la institución donde estudiamos con profesores?', o: ['La escuela o colegio', 'El mercado', 'El río', 'El cerro'], c: 0 },
+    { t: '¿Qué expresión en castellano usamos cuando chocamos con alguien por error?', o: ['Lo siento / Disculpa', 'Hola', 'Felicitaciones', 'Bienvenido'], c: 0 },
+    { t: '¿Cómo se nombra en castellano al astro rey que nos da luz y calor en el día?', o: ['El Sol', 'La Luna', 'Una estrella fugaz', 'Una nube'], c: 0 },
+    { t: '¿Cuál es el significado en castellano de "Unu" o "Yaku" (agua)?', o: ['Agua', 'Fuego', 'Tierra', 'Aire'], c: 0 },
+    { t: '¿Cómo se le dice en castellano a tu progenitor varón (padre)?', o: ['Papá', 'Hermano', 'Abuelo', 'Tío'], c: 0 },
+    { t: '¿Cómo se dice en castellano el número 5?', o: ['Cinco', 'Tres', 'Diez', 'Uno'], c: 0 },
+    { t: '¿Qué prenda de vestir usamos en los pies abrigados en castellano?', o: ['Zapatos o zapatillas', 'Sombrero', 'Guantes', 'Bufanda'], c: 0 },
+    { t: '¿Cómo se llama en castellano el líquido blanco nutritivo que nos da la vaca?', o: ['Leche', 'Agua', 'Sopa', 'Jugo'], c: 0 },
+    { t: '¿Qué instrucción escolar en castellano te pide guardar silencio y prestar atención?', o: ['Silencio, por favor', 'Grita fuerte', 'Corre mucho', 'Baila solo'], c: 0 }
+  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
+
+  const makeIngles20 = () => [
+    { t: 'How do you say "Hola" in English?', o: ['Hello / Hi', 'Goodbye', 'Please', 'Thank you'], c: 0 },
+    { t: 'What is the correct English translation for the color "Rojo"?', o: ['Red', 'Blue', 'Green', 'Yellow'], c: 0 },
+    { t: 'Complete the sentence with the correct Verb To Be: "I ___ a student."', o: ['am', 'is', 'are', 'be'], c: 0 },
+    { t: 'How do you say "Gato" in English?', o: ['Cat', 'Dog', 'Bird', 'Fish'], c: 0 },
+    { t: 'What number is "Twenty"?', o: ['10', '12', '20', '100'], c: 2 },
+    { t: 'Which pronoun is used to refer to a boy or man?', o: ['He', 'She', 'It', 'They'], c: 0 },
+    { t: 'How do you translate "Familia" into English?', o: ['Family', 'School', 'House', 'Friend'], c: 0 },
+    { t: 'What does "Stand up!" mean in Spanish?', o: ['¡Ponte de pie / Levántate!', '¡Siéntate!', '¡Abre tu libro!', '¡Silencio!'], c: 0 },
+    { t: 'Complete: "She ___ happy today." (Verb To Be)', o: ['is', 'am', 'are', 'be'], c: 0 },
+    { t: 'How do you say "Manzana" in English?', o: ['Apple', 'Banana', 'Orange', 'Pear'], c: 0 },
+    { t: 'What is the meaning of "Thank you"?', o: ['Gracias', 'Por favor', 'Hola', 'Adiós'], c: 0 },
+    { t: 'Choose the correct plural for "Book":', o: ['Books', 'Bookes', 'Booki', 'Bikes'], c: 0 },
+    { t: 'How do you say "Hermana" in English?', o: ['Sister', 'Brother', 'Mother', 'Father'], c: 0 },
+    { t: 'What is "Good morning" in Spanish?', o: ['Buenos días', 'Buenas tardes', 'Buenas noches', 'Hola'], c: 0 },
+    { t: 'Complete with correct pronoun: "___ are playing soccer." (We / Us)', o: ['We', 'He', 'She', 'It'], c: 0 },
+    { t: 'How do you say "Perro" in English?', o: ['Dog', 'Cat', 'Cow', 'Duck'], c: 0 },
+    { t: 'What color is "Yellow"?', o: ['Amarillo', 'Azul', 'Rojo', 'Negro'], c: 0 },
+    { t: 'Translate "Open your book" into Spanish:', o: ['Abre tu libro', 'Cierra tu cuaderno', 'Escribe en la pizarra', 'Escucha al profesor'], c: 0 },
+    { t: 'What is the number "Fifteen"?', o: ['15', '50', '5', '55'], c: 0 },
+    { t: 'How do you say "Adiós" in English?', o: ['Goodbye / Bye', 'Hello', 'Please', 'Good morning'], c: 0 }
+  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
+
+  const defaults = [
+    { id: 'all_comu', title: '📖 Comunicación y Lengua Materna (20 Preguntas)', questions: makeComu20() },
+    { id: 'all_math', title: '📐 Matemática Integral - Primaria (20 Preguntas)', questions: makeMath20() },
+    { id: 'all_social', title: '🌍 Personal Social y Geografía (20 Preguntas)', questions: makeSocial20() },
+    { id: 'all_ciencia', title: '🔬 Ciencia y Tecnología (20 Preguntas)', questions: makeCiencia20() },
+    { id: 'all_arte', title: '🎨 Arte y Cultura (20 Preguntas)', questions: makeArte20() },
+    { id: 'all_efisica', title: '⚽ Educación Física y Salud (20 Preguntas)', questions: makeEdFisica20() },
+    { id: 'all_religio', title: '⛪ Educación Religiosa y Valores (20 Preguntas)', questions: makeReligiosa20() },
+    { id: 'all_eib', title: '🗣️ Castellano como Segunda Lengua - EIB (20 Preguntas)', questions: makeEIB20() },
+    { id: 'all_ingles', title: '🇬🇧 Inglés como Lengua Extranjera (20 Preguntas)', questions: makeIngles20() }
+  ];
+
+  try {
+    let l = JSON.parse(localStorage.getItem(LS) || 'null');
+    if (!Array.isArray(l)) l = [];
+    defaults.forEach(defQ => {
+      if (!l.some(x => x.id === defQ.id)) {
+        l.unshift(defQ);
+      }
+    });
+    saveQuizzes(l);
+    return l;
+  } catch (e) {
+    return defaults;
+  }
+}
+const saveQuizzes = l => { try { localStorage.setItem(LS, JSON.stringify(l)); } catch (e) {} };
+
+function validate(quiz) {
+  if (!quiz || !Array.isArray(quiz.questions) || !quiz.questions.length) return 'El quiz no tiene preguntas.';
+  for (let i = 0; i < quiz.questions.length; i++) {
+    const q = quiz.questions[i], n = `Pregunta ${i + 1}: `;
+    if (!q.text || !q.text.trim()) return n + 'falta el texto de la pregunta.';
+    if (q.type === 'quiz' || q.type === 'poll') {
+      if (q.options.filter(o => o.trim()).length < 2) return n + 'necesita al menos 2 respuestas.';
+      if (q.type === 'quiz' && !(q.options[q.correct] || '').trim()) return n + 'marca una respuesta correcta que no esté vacía.';
+    }
+    if (q.type === 'type' && !q.answers.some(a => a.trim())) return n + 'agrega al menos una respuesta aceptada.';
+    if (q.type === 'slider') {
+      if (!(Number(q.min) < Number(q.max))) return n + 'el mínimo debe ser menor que el máximo.';
+      if (q.sliderCorrect < q.min || q.sliderCorrect > q.max) return n + 'la respuesta correcta debe estar dentro del rango.';
+    }
+  }
+  return null;
+}
+
+// ================= CSV =================
+function parseCSV(text) {
+  const first = text.split('\n')[0] || '';
+  const delim = (first.includes(';') && !first.includes(',')) ? ';' : ',';
+  const rows = []; let row = [], cur = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
+      else cur += c;
+    } else if (c === '"') inQ = true;
+    else if (c === delim) { row.push(cur); cur = ''; }
+    else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+    else if (c !== '\r') cur += c;
+  }
+  if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim() !== ''));
+}
+function csvToQuiz(text, title) {
+  let rows = parseCSV(text.replace(/^\uFEFF/, ''));
+  if (rows.length && isNaN(parseInt(rows[0][5]))) rows = rows.slice(1);
+  const questions = rows.filter(r => r.length >= 6).map(r => {
+    const t = parseInt(r[6]);
+    return { ...mkQ('quiz'), text: r[0].trim(), options: [r[1], r[2], r[3], r[4]].map(x => (x || '').trim()),
+      correct: Math.min(3, Math.max(0, (parseInt(r[5]) || 1) - 1)), time: [5,10,20,30,60,90,120,240].includes(t) ? t : 20 };
+  });
+  return { id: 'q' + Date.now(), title: title || 'Quiz importado', questions };
+}
+const csvCell = s => `"${String(s ?? '').replace(/"/g, '""')}"`;
+function download(name, text, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\uFEFF' + text], { type: mime + ';charset=utf-8' }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+window.downloadTemplate = () => download('plantilla_quiz.csv',
+  'Pregunta,Opcion 1,Opcion 2,Opcion 3,Opcion 4,Correcta (1-4),Tiempo (segundos)\n"¿Cuánto es 2+2?",3,4,5,6,2,20\n', 'text/csv');
+window.exportQuiz = (id, fmt) => {
+  const qz = loadQuizzes().find(x => x.id === id); if (!qz) return;
+  const base = (qz.title || 'quiz').replace(/[^\w\-]+/g, '_');
+  if (fmt === 'json') return download(base + '.json', JSON.stringify(qz, null, 2), 'application/json');
+  let out = 'Pregunta,Opcion 1,Opcion 2,Opcion 3,Opcion 4,Correcta (1-4),Tiempo (segundos)\n';
+  qz.questions.filter(q => q.type === 'quiz' || q.type === 'tf').forEach(q => {
+    const o = q.options.concat(['', '', '', '']).slice(0, 4);
+    out += [csvCell(q.text), ...o.map(csvCell), q.correct + 1, q.time].join(',') + '\n';
+  });
+  download(base + '.csv', out, 'text/csv');
+};
+window.importFile = input => {
+  const f = input.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      let qz;
+      if (f.name.toLowerCase().endsWith('.json')) {
+        qz = JSON.parse(e.target.result);
+        qz.questions = (qz.questions || []).map(q => ({ ...mkQ(q.type || 'quiz'), ...q }));
+      } else qz = csvToQuiz(e.target.result, f.name.replace(/\.[^.]+$/, ''));
+      const err = validate(qz);
+      if (err) return alert('Archivo inválido: ' + err);
+      qz.id = 'q' + Date.now(); qz.title = qz.title || 'Quiz importado';
+      const l = loadQuizzes(); l.unshift(qz); saveQuizzes(l); showLibrary();
+    } catch (er) { alert('No se pudo leer el archivo: ' + er.message); }
+  };
+  r.readAsText(f); input.value = '';
+};
+
+// ================= ESTADO GLOBAL =================
+let user = null, H = null, Pl = null, ED = null, S = null;
+function cleanup() {
+  if (H) { clearInterval(H.timer); H.unsub.forEach(u => u()); H = null; }
+  if (Pl) { clearInterval(Pl.timer); Pl.unsub.forEach(u => u()); Pl = null; }
+  if (S) { clearInterval(S.timer); S = null; }
+}
+
+// ================= AUTENTICACIÓN =================
+let started = false;
+async function initAuth() {
+  onAuthStateChanged(auth, u => { if (u) { user = u; if (!started) { started = true; showLanding(); } } });
+  try {
+    const espera = new Promise((_, rej) => setTimeout(() => rej(new Error('tiempo de espera agotado')), 12000));
+    await Promise.race([signInAnonymously(auth), espera]);
+  } catch (error) {
+    if (!started) { started = true; showLanding(); }
+    setTimeout(() => alert('No se pudo conectar con Firebase. Revisa tu conexión a internet.'), 300);
+  }
+}
+
+// ================= PANTALLA PRINCIPAL =================
+window.showLanding = () => {
+  cleanup();
+  const pin = new URLSearchParams(location.search).get('pin') || '';
+  screen(`
+    ${bubbles()}
+    <div class="relative z-10 w-full glass border-b border-white/10 flex items-center justify-between px-6 py-4 shadow-xl shrink-0">
+      <div class="text-white font-black text-2xl tracking-tighter flex items-center gap-2">
+        <span class="bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">QuizGo</span>
+        <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">PRO</span>
+      </div>
+      <button onclick="showLibrary()" class="bg-[#ff5a5f] hover:bg-[#e0484d] text-white text-sm font-black px-5 py-2.5 rounded-xl btn3d flex items-center gap-2">✏️ Biblioteca & Crear</button>
+    </div>
+    <div class="relative z-10 flex-1 flex flex-col items-center justify-center p-4">
+      <div class="flex gap-3 mb-4">${[0, 1, 2].map(() => avatarHTML(avRand(), 72)).join('')}</div>
+      <h1 class="text-white text-6xl md:text-7xl font-black mb-8 tracking-tighter text-center drop-shadow-lg" style="text-shadow:0 8px 24px rgba(0,0,0,.4)">QuizGo</h1>
+      <div class="glass p-6 w-full max-w-[360px] shadow-2xl rounded-3xl text-center slide-up border border-white/20">
+        <div class="space-y-4">
+          <input id="in-pin" inputmode="numeric" maxlength="6" value="${esc(pin)}" placeholder="PIN del juego" class="w-full text-center py-3.5 bg-black/30 border-2 border-white/20 rounded-2xl font-black text-xl text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition">
+          <input id="in-nick" maxlength="20" placeholder="Tu apodo épico" class="w-full text-center py-3.5 bg-black/30 border-2 border-white/20 rounded-2xl font-black text-xl text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition" onkeydown="if(event.key==='Enter')joinGame()">
+          <button onclick="joinGame()" class="w-full py-4 text-white font-black text-lg rounded-2xl bg-[#26890c] hover:bg-[#20720a] btn3d shadow-xl transition">¡Unirse a la partida!</button>
+        </div>
+      </div>
+    </div>`, 'stage-bg text-white');
+};
+
+// ================= BIBLIOTECA =================
+window.showLibrary = () => {
+  cleanup(); ED = null;
+  const list = loadQuizzes();
+  const cards = list.map((q, i) => `
+    <div class="card-lift slide-up glass-card rounded-3xl border border-white/10 relative shadow-xl overflow-hidden flex flex-col justify-between" style="animation-delay:${i * 50}ms">
+      <div class="h-36 relative flex items-center justify-center overflow-hidden" style="background:linear-gradient(135deg,${CARD_GRADS[[...q.id].reduce((a, c) => a + c.charCodeAt(0), 0) % CARD_GRADS.length].join(',')})">
+        <div class="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/20 blur-xl"></div>
+        <div class="absolute -left-6 -bottom-10 w-28 h-28 rounded-full bg-white/10 blur-xl"></div>
+        <div class="relative flex gap-2 text-4xl drop-shadow-md">${[...new Set(q.questions.map(x => TYPES[x.type] ? TYPES[x.type].i : '❓'))].slice(0, 4).join(' ')}</div>
+        <span class="absolute bottom-3 right-3 bg-black/50 backdrop-blur-md text-white text-xs font-black px-3 py-1 rounded-full border border-white/15">${q.questions.length} preguntas</span>
+      </div>
+      <div class="p-5 flex-1 flex flex-col justify-between">
+        <div>
+          <h3 class="font-black text-base text-white leading-snug line-clamp-2 mb-2">${esc(q.title)}</h3>
+        </div>
+        <div class="flex gap-2.5 pt-2">
+          <button onclick="presentQuiz('${q.id}')" class="flex-1 bg-[#26890c] hover:bg-[#20720a] text-white text-xs font-black py-2.5 rounded-xl btn3d">▶ Presentar</button>
+          <button onclick="soloStart('${q.id}')" class="flex-1 bg-white/15 hover:bg-white/25 text-white text-xs font-black py-2.5 rounded-xl transition border border-white/20">Modo Solo</button>
+        </div>
+      </div>
+      <button onclick="toggleMenu(event,'menu-${i}')" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md hover:bg-black/70 text-white font-black flex items-center justify-center border border-white/20">⋮</button>
+      <div id="menu-${i}" class="hidden absolute top-14 right-3 w-52 glass bg-black/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl py-2 z-50 text-sm text-white">
+        <button onclick="presentQuiz('${q.id}')" class="w-full text-left px-4 py-2.5 hover:bg-white/15 font-bold">👨‍🏫 Presentar en vivo</button>
+        <button onclick="soloStart('${q.id}')" class="w-full text-left px-4 py-2.5 hover:bg-white/15">▶️ Jugar en solitario</button>
+        <div class="border-t border-white/10 my-1"></div>
+        <button onclick="editQuiz('${q.id}')" class="w-full text-left px-4 py-2.5 hover:bg-white/15">✏️ Editar quiz</button>
+        <button onclick="dupQuiz('${q.id}')" class="w-full text-left px-4 py-2.5 hover:bg-white/15">📋 Duplicar</button>
+        <button onclick="exportQuiz('${q.id}','csv')" class="w-full text-left px-4 py-2.5 hover:bg-white/15">⬇️ Exportar CSV</button>
+        <button onclick="exportQuiz('${q.id}','json')" class="w-full text-left px-4 py-2.5 hover:bg-white/15">⬇️ Exportar JSON</button>
+        <div class="border-t border-white/10 my-1"></div>
+        <button onclick="delQuiz('${q.id}')" class="w-full text-left px-4 py-2.5 hover:bg-red-500/20 text-red-400 font-bold">🗑️ Eliminar</button>
+      </div>
+    </div>`).join('');
+  screen(`
+    <div class="glass h-18 border-b border-white/10 flex items-center justify-between px-6 shadow-xl shrink-0">
+      <div class="text-white font-black text-2xl tracking-tighter cursor-pointer flex items-center gap-2" onclick="showLanding()">
+        <span class="bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">QuizGo</span>
+      </div>
+      <div class="flex gap-3">
+        <button onclick="showLanding()" class="text-sm font-bold text-white/80 hover:text-white px-4 py-2 rounded-xl hover:bg-white/10 transition">Inicio</button>
+        <button onclick="newQuiz()" class="bg-[#1368ce] hover:bg-[#0f55b0] text-white text-sm font-black px-5 py-2.5 rounded-xl btn3d flex items-center gap-2">+ Crear quiz</button>
+      </div>
+    </div>
+    <div class="flex-1 p-6 md:p-8 overflow-y-auto">
+      <div class="flex flex-wrap justify-between items-center gap-4 mb-8">
+        <div>
+          <h1 class="text-3xl font-black tracking-tight mb-1">Biblioteca de Quizzes</h1>
+          <p class="text-white/60 text-sm font-medium">Elige un tema escolar o crea el tuyo propio para jugar</p>
+        </div>
+        <div class="flex flex-wrap gap-3 text-sm font-bold">
+          <label class="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2.5 rounded-xl cursor-pointer shadow-lg transition flex items-center gap-2 border border-purple-400/30">📥 Importar CSV / JSON<input type="file" accept=".csv,.json" class="hidden" onchange="importFile(this)"></label>
+          <button onclick="downloadTemplate()" class="glass hover:bg-white/20 px-5 py-2.5 rounded-xl transition border border-white/20">Descargar plantilla CSV</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">${cards}</div>
+    </div>`, 'stage-bg text-white');
+};
+window.toggleMenu = (e, id) => {
+  e.stopPropagation();
+  document.querySelectorAll('[id^="menu-"]').forEach(m => { if (m.id !== id) m.classList.add('hidden'); });
+  const m = $(id); if (m) m.classList.toggle('hidden');
+};
+window.closeAllMenus = () => document.querySelectorAll('[id^="menu-"]').forEach(m => m.classList.add('hidden'));
+window.dupQuiz = id => { const l = loadQuizzes(); const q = l.find(x => x.id === id); if (!q) return; const c = clone(q); c.id = 'q' + Date.now(); c.title += ' (copia)'; l.unshift(c); saveQuizzes(l); showLibrary(); };
+window.delQuiz = id => { if (!confirm('¿Eliminar este quiz?')) return; saveQuizzes(loadQuizzes().filter(x => x.id !== id)); showLibrary(); };
+
+// ================= EDITOR =================
+window.newQuiz = () => { ED = { quiz: { id: 'q' + Date.now(), title: '', questions: [mkQ()] }, qi: 0 }; renderEditor(); };
+window.editQuiz = id => { const q = loadQuizzes().find(x => x.id === id); if (!q) return; ED = { quiz: clone(q), qi: 0 }; renderEditor(); };
+const curQ = () => ED.quiz.questions[ED.qi];
+
+function renderEditor() {
+  const q = curQ();
+  const left = ED.quiz.questions.map((qq, i) => `
+    <div onclick="edSel(${i})" class="rounded-2xl p-3 mb-2.5 cursor-pointer transition border ${i === ED.qi ? 'border-purple-400 bg-purple-600/30 shadow-lg' : 'border-white/10 bg-white/5 hover:bg-white/10'}">
+      <div class="flex justify-between text-[11px] font-black text-white/70 mb-1">
+        <span>#${i + 1} · ${TYPES[qq.type].i} ${TYPES[qq.type].n}</span>
+        <span class="flex gap-2"><button title="Duplicar" onclick="event.stopPropagation();edDup(${i})" class="hover:text-purple-300">⧉</button> <button title="Eliminar" onclick="event.stopPropagation();edDel(${i})" class="hover:text-red-400">🗑</button></span>
+      </div>
+      <div id="thumb-${i}" class="text-xs font-bold truncate">${esc(qq.text) || '(sin texto)'}</div>
+    </div>`).join('');
+
+  let center = '';
+  if (q.type === 'quiz' || q.type === 'poll') {
+    center = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl">` + [0,1,2,3].map(i => `
+      <div class="glass rounded-2xl flex items-stretch h-20 shadow-xl overflow-hidden border border-white/15" style="border-left:8px solid ${OPT[i].c}">
+        <div class="w-14 flex items-center justify-center" style="background:${OPT[i].c}">${shape(i, 24)}</div>
+        <input value="${esc(q.options[i])}" oninput="edOpt(${i},this.value)" placeholder="Opción ${i + 1}" class="flex-1 px-4 bg-transparent font-bold text-white placeholder-white/40 focus:outline-none min-w-0">
+        ${q.type === 'quiz' ? `<button onclick="edCorrect(${i})" title="Marcar como correcta" class="w-16 flex items-center justify-center text-3xl font-black ${q.correct === i ? 'bg-green-500 text-white shadow-inner' : 'text-white/20 hover:bg-white/10'}">✓</button>` : ''}
+      </div>`).join('') + `</div>`;
+  } else if (q.type === 'tf') {
+    center = `<div class="grid grid-cols-2 gap-4 w-full max-w-3xl">` + [0,1].map(i => `
+      <button onclick="edCorrect(${i})" class="h-28 rounded-2xl flex items-center justify-center gap-3 text-white text-2xl font-black btn3d ${q.correct === i ? 'ring-4 ring-green-400 scale-105' : 'opacity-75'}" style="background:${OPT[optIdx(q, i)].c}">
+        ${shape(optIdx(q, i), 32)} ${q.options[i]} ${q.correct === i ? '✓' : ''}</button>`).join('') + `</div>`;
+  } else if (q.type === 'type') {
+    center = `<div class="w-full max-w-2xl glass rounded-3xl p-6 border border-white/15 shadow-xl">
+      <label class="font-black text-sm block mb-2 text-white/90">Respuestas aceptadas (una por línea)</label>
+      <textarea oninput="edAnswers(this.value)" rows="5" class="w-full bg-black/40 border border-white/20 rounded-2xl p-4 font-bold text-white focus:outline-none focus:border-purple-400">${esc(q.answers.join('\n'))}</textarea></div>`;
+  } else if (q.type === 'slider') {
+    const f = (label, k) => `<label class="text-xs font-black text-white/80 block">${label}<input type="number" value="${q[k]}" oninput="edNum('${k}',this.value)" class="w-full bg-black/40 border border-white/20 rounded-xl p-3 mt-1 font-bold text-white focus:outline-none focus:border-purple-400"></label>`;
+    center = `<div class="w-full max-w-2xl glass rounded-3xl p-6 border border-white/15 shadow-xl grid grid-cols-2 md:grid-cols-4 gap-4">
+      ${f('Mínimo', 'min')}${f('Máximo', 'max')}${f('Correcto', 'sliderCorrect')}${f('Margen (±)', 'margin')}</div>`;
+  }
+
+  const sel = (opts, cur, fn) => `<select onchange="${fn}(this.value)" class="w-full bg-black/40 border border-white/20 rounded-xl p-3 text-sm font-bold text-white focus:outline-none focus:border-purple-400">${opts.map(([v, l]) => `<option value="${v}" ${String(v) === String(cur) ? 'selected' : ''} class="bg-gray-900">${l}</option>`).join('')}</select>`;
+
+  screen(`
+    <div class="glass h-18 border-b border-white/10 flex items-center justify-between px-6 shadow-xl shrink-0 gap-4">
+      <div class="flex items-center gap-4 min-w-0">
+        <div class="text-white font-black text-xl tracking-tighter hidden sm:block">QuizGo Editor</div>
+        <input value="${esc(ED.quiz.title)}" oninput="ED_title(this.value)" placeholder="Título del quiz..." class="bg-black/30 border border-white/20 rounded-xl px-4 py-2 text-sm font-black w-48 sm:w-80 text-white focus:outline-none focus:border-purple-400">
+      </div>
+      <div class="flex items-center gap-3 shrink-0">
+        <button class="text-white/70 hover:text-white font-bold text-sm px-4 py-2 rounded-xl hover:bg-white/10 transition" onclick="if(confirm('¿Salir sin guardar?'))showLibrary()">Salir</button>
+        <button class="glass hover:bg-white/25 text-white font-black text-sm px-5 py-2.5 rounded-xl transition border border-white/20" onclick="edSave(false)">Guardar</button>
+        <button class="bg-[#26890c] hover:bg-[#20720a] text-white font-black text-sm px-6 py-2.5 rounded-xl btn3d" onclick="edSave(true)">Guardar y presentar</button>
+      </div>
+    </div>
+    <div class="flex flex-1 overflow-hidden">
+      <div class="w-56 md:w-64 glass border-r border-white/10 flex flex-col p-4 shrink-0 overflow-y-auto">
+        <div class="flex-1 space-y-2">${left}</div>
+        <button onclick="$('modal-add').classList.remove('hidden')" class="bg-[#1368ce] hover:bg-[#0f55b0] text-white font-black text-sm py-3 rounded-2xl btn3d mt-3">➕ Añadir pregunta</button>
+      </div>
+      <div class="flex-1 flex flex-col items-center p-6 md:p-8 overflow-y-auto">
+        <textarea oninput="edText(this.value)" rows="2" placeholder="Escribe tu pregunta aquí..." class="w-full max-w-4xl text-center text-2xl md:text-3xl font-black py-5 px-6 glass rounded-3xl border border-white/20 shadow-2xl focus:outline-none focus:border-purple-400 text-white resize-none">${esc(q.text)}</textarea>
+        <div class="w-full max-w-md glass mt-6 mb-6 rounded-3xl border border-white/15 shadow-xl p-4 flex flex-col items-center">
+          ${q.image ? `<img src="${esc(q.image)}" class="max-h-48 object-contain mb-3 rounded-2xl"><button onclick="edImg('')" class="text-xs font-black text-red-400 hover:underline">Quitar imagen</button>` : `
+          <div class="text-sm font-bold text-white/70 mb-2">🖼️ Imagen opcional</div>
+          <input placeholder="Pega URL de imagen y presiona Enter" onkeydown="if(event.key==='Enter')edImg(this.value.trim())" class="w-full bg-black/40 border border-white/20 rounded-xl px-4 py-2 text-sm text-white placeholder-white/40 focus:outline-none">`}
+        </div>
+        ${center}
+      </div>
+      <div class="w-60 md:w-72 glass border-l border-white/10 p-6 flex flex-col gap-6 overflow-y-auto shrink-0">
+        <h3 class="font-black text-sm tracking-widest uppercase opacity-85">Propiedades</h3>
+        <div><label class="text-xs font-black text-white/70 block mb-2">Tipo</label>${sel(Object.entries(TYPES).map(([k, v]) => [k, v.i + ' ' + v.n]), q.type, 'edType')}</div>
+        <div><label class="text-xs font-black text-white/70 block mb-2">⏱️ Tiempo</label>${sel([5,10,20,30,60,90,120,240].map(s => [s, s + ' segundos']), q.time, 'edTime')}</div>
+        <div><label class="text-xs font-black text-white/70 block mb-2">🏆 Puntos</label>${sel([['standard', 'Estándar'], ['double', 'Doble'], ['none', 'Sin puntos']], q.points, 'edPoints')}</div>
+      </div>
+    </div>
+    <div id="modal-add" class="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center hidden p-4">
+      <div class="glass w-full max-w-[620px] rounded-3xl shadow-2xl overflow-hidden border border-white/20 slide-up">
+        <div class="p-8">
+          <h3 class="font-black text-xl mb-4 text-white">Elige el tipo de pregunta</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            ${Object.entries(TYPES).map(([k, v]) => `<button onclick="edAdd('${k}')" class="glass-card hover:bg-white/20 border border-white/20 rounded-2xl shadow-xl h-28 flex flex-col items-center justify-center transition hover:scale-105"><div class="text-4xl mb-2">${v.i}</div><span class="font-black text-xs">${v.n}</span></button>`).join('')}
+          </div>
+        </div>
+        <div class="glass border-t border-white/10 p-4 flex justify-end"><button class="glass hover:bg-white/20 font-black px-6 py-2.5 rounded-xl text-sm" onclick="$('modal-add').classList.add('hidden')">Cancelar</button></div>
+      </div>
+    </div>`, 'stage-bg text-white');
+}
+window.$ = $;
+window.ED_title = v => { ED.quiz.title = v; };
+window.edSel = i => { ED.qi = i; renderEditor(); };
+window.edAdd = t => { ED.quiz.questions.push(mkQ(t)); ED.qi = ED.quiz.questions.length - 1; renderEditor(); };
+window.edDup = i => { ED.quiz.questions.splice(i + 1, 0, clone(ED.quiz.questions[i])); ED.qi = i + 1; renderEditor(); };
+window.edDel = i => {
+  if (ED.quiz.questions.length === 1) return alert('El quiz debe tener al menos una pregunta.');
+  ED.quiz.questions.splice(i, 1); ED.qi = Math.min(ED.qi, ED.quiz.questions.length - 1); renderEditor();
+};
+window.edText = v => { curQ().text = v; const t = $('thumb-' + ED.qi); if (t) t.textContent = v || '(sin texto)'; };
+window.edOpt = (i, v) => { curQ().options[i] = v; };
+window.edCorrect = i => { curQ().correct = i; renderEditor(); };
+window.edAnswers = v => { curQ().answers = v.split('\n'); };
+window.edNum = (k, v) => { curQ()[k] = Number(v); };
+window.edTime = v => { curQ().time = Number(v); };
+window.edPoints = v => { curQ().points = v; };
+window.edImg = v => { curQ().image = v; renderEditor(); };
+window.edType = t => {
+  const q = curQ(); q.type = t;
+  if (t === 'tf') { q.options = ['Verdadero', 'Falso']; if (q.correct > 1) q.correct = 0; }
+  else if (q.options.length < 4 || q.options[0] === 'Verdadero') { q.options = ['', '', '', '']; q.correct = 0; }
+  renderEditor();
+};
+window.edSave = present => {
+  const qz = ED.quiz;
+  const err = validate(qz); if (err) return alert(err);
+  qz.title = (qz.title || '').trim() || 'Quiz sin título';
+  const l = loadQuizzes(), i = l.findIndex(x => x.id === qz.id);
+  if (i >= 0) l[i] = clone(qz); else l.unshift(clone(qz));
+  saveQuizzes(l);
+  if (present) presentQuiz(qz.id); else showLibrary();
+};
+
+// ================= PANEL DE RESPUESTA =================
+function answerPanel(q, fn) {
+  if (q.type === 'type') return `<div class="flex flex-col gap-4 p-6 max-w-md mx-auto glass rounded-3xl border border-white/20">
+    <input id="ans-text" maxlength="100" autocomplete="off" placeholder="Escribe tu respuesta aquí" class="bg-black/40 border-2 border-white/20 rounded-2xl p-4 text-2xl font-black text-center text-white placeholder-white/50 focus:outline-none focus:border-purple-400" onkeydown="if(event.key==='Enter')${fn}(this.value)">
+    <button onclick="${fn}(document.getElementById('ans-text').value)" class="bg-[#1368ce] hover:bg-[#0f55b0] text-white font-black py-4 rounded-2xl btn3d text-lg shadow-xl">Enviar respuesta</button></div>`;
+  if (q.type === 'slider') return `<div class="flex flex-col gap-5 p-8 max-w-md mx-auto glass rounded-3xl border border-white/20 text-center">
+    <div id="ans-val" class="text-6xl font-black text-purple-300 drop-shadow-md">${Math.round((q.min + q.max) / 2)}</div>
+    <input id="ans-range" type="range" min="${q.min}" max="${q.max}" value="${Math.round((q.min + q.max) / 2)}" oninput="document.getElementById('ans-val').textContent=this.value" class="w-full accent-purple-500">
+    <div class="flex justify-between text-sm font-bold text-white/70"><span>${q.min}</span><span>${q.max}</span></div>
+    <button onclick="${fn}(Number(document.getElementById('ans-range').value))" class="bg-[#1368ce] hover:bg-[#0f55b0] text-white font-black py-4 rounded-2xl btn3d text-lg shadow-xl">Enviar respuesta</button></div>`;
+  const vis = visibleOpts(q);
+  return `<div class="grid grid-cols-2 auto-rows-fr gap-4 h-full min-h-[240px] max-w-5xl mx-auto w-full p-2">${vis.map(i => `
+    <button ${optBox(q, i, `onclick="${fn}(${i})"`)} class="btn3d rounded-3xl flex flex-col items-center justify-center gap-3 p-6 text-white font-black text-xl md:text-2xl hover:scale-[1.02] transition">
+      ${shape(optIdx(q, i), 44)}<span class="break-words text-center leading-tight">${esc(q.options[i])}</span></button>`).join('')}</div>`;
+}
+
+// ================= ANFITRIÓN (HOST) =================
+window.presentQuiz = async id => {
+  if (!user) return alert('No hay conexión con Firebase.');
+  const qz = loadQuizzes().find(x => x.id === id); if (!qz) return;
+  cleanup();
+  try {
+    let pin;
+    for (let i = 0; i < 6; i++) {
+      pin = String(Math.floor(100000 + Math.random() * 900000));
+      if (!(await getDoc(doc(gamesCol(), pin))).exists()) break;
+    }
+    await setDoc(doc(gamesCol(), pin), { hostId: user.uid, title: qz.title, state: 'lobby', qIndex: 0, startAt: 0, createdAt: Date.now(), questions: clone(qz.questions) });
+    H = { pin, game: null, players: [], unsub: [], timer: null, key: '', busy: false };
+    H.unsub.push(onSnapshot(doc(gamesCol(), pin), s => { if (H && s.exists()) { H.game = s.data(); hostRender(); } }));
+    H.unsub.push(onSnapshot(query(playersCol(), where('gamePin', '==', pin)), snap => { if (H) { H.players = snap.docs.map(d => ({ id: d.id, ...d.data() })); hostLive(); } }));
+  } catch (e) { alert('No se pudo crear la partida: ' + e.message); }
+};
+function hostRender() {
+  if (!H || !H.game) return;
+  const g = H.game, key = g.state + '-' + g.qIndex;
+  if (key !== H.key) {
+    H.key = key; H.busy = false; clearInterval(H.timer);
+    ({ lobby: hostLobby, question: hostQuestion, result: hostResultScreen, podium: hostPodium })[g.state]();
+  }
+  hostLive();
+}
+function hostLive() {
+  if (!H || !H.game) return;
+  const g = H.game;
+  if (g.state === 'lobby') {
+    const l = $('players-list'); if (!l) return;
+    H.players.filter(p => !H.seen.has(p.id)).forEach(p => toast(`${avatarHTML(p.avatar, 32)}<span>${esc(p.nickname)} se unió 🎉</span>`));
+    l.innerHTML = H.players.map(p => {
+      const c = AV_COLORS[(p.avatar || DEF_AV).c || 0][0], isNew = !H.seen.has(p.id);
+      return `<button title="Expulsar" onclick="kick('${p.id}')" class="${isNew ? 'slide-up' : ''} relative overflow-hidden rounded-3xl p-5 pb-4 flex flex-col items-center transition hover:scale-105" style="background:linear-gradient(160deg,${c}88,rgba(255,255,255,.05));border:1px solid rgba(255,255,255,0.25);box-shadow:0 12px 30px rgba(0,0,0,0.3)">
+        <div class="absolute -top-10 w-32 h-32 rounded-full blur-2xl opacity-60" style="background:${c}"></div>
+        <div class="relative">${avatarHTML(p.avatar, 92)}</div>
+        <span class="relative mt-3 px-4 py-1 rounded-full bg-black/40 backdrop-blur-md font-black text-sm max-w-full truncate border border-white/15">${esc(p.nickname)}</span></button>`;
+    }).join('');
+    H.players.forEach(p => H.seen.add(p.id));
+    $('pcount').textContent = H.players.length;
+    const has = H.players.length > 0, b = $('btn-start');
+    b.disabled = !has; b.classList.toggle('opacity-40', !has); b.classList.toggle('glow', has);
+    $('empty-hint').classList.toggle('hidden', has);
+  } else if (g.state === 'question') {
+    const n = H.players.filter(p => p.answerQ === g.qIndex).length;
+    const c = $('hcount'); if (c) c.textContent = `Respuestas: ${n} / ${H.players.length}`;
+    if (H.players.length && n === H.players.length) hostShowResults();
+  } else if (g.state === 'result') hostResultInner();
+  else if (g.state === 'podium') hostPodiumInner();
+}
+function hostLobby() {
+  const url = location.href.split('?')[0].split('#')[0];
+  H.seen = new Set();
+  screen(`
+    ${bubbles()}
+    <div class="relative z-10 flex flex-col flex-1 min-h-0 w-full">
+      <div class="flex flex-wrap items-stretch justify-between gap-6 p-6 md:p-8">
+        <div class="glass rounded-3xl p-5 flex items-center gap-5 slide-up border border-white/20 shadow-2xl">
+          <div id="qr" class="bg-white p-3 rounded-2xl w-[112px] h-[112px] flex items-center justify-center text-4xl shrink-0 shadow-lg"></div>
+          <div>
+            <div class="text-xs font-black tracking-widest text-purple-300 mb-1">1 · ENTRA EN TU MÓVIL</div>
+            <div class="font-bold text-sm md:text-base break-all max-w-xs text-white/90">${esc(url)}</div>
+            <div class="text-xs font-black tracking-widest text-purple-300 mt-2 mb-1">2 · ESCRIBE EL PIN</div>
+          </div>
+        </div>
+        <div class="glass text-white rounded-3xl px-10 py-5 text-center shadow-2xl slide-up border border-white/20 flex flex-col justify-center" style="animation-delay:.1s">
+          <div class="text-xs font-black tracking-widest text-purple-300">PIN DEL JUEGO</div>
+          <div class="text-6xl md:text-7xl font-black tracking-widest text-white drop-shadow-lg">${H.pin}</div>
+        </div>
+      </div>
+      <div class="flex-1 min-h-0 flex flex-col items-center px-6 pb-6 overflow-y-auto">
+        <h2 class="text-3xl md:text-5xl font-black text-center mb-3 pop drop-shadow-md">${esc(H.game.title)}</h2>
+        <div class="glass rounded-full px-8 py-2.5 mb-6 font-black text-lg border border-white/20 shadow-xl">👥 <span id="pcount">0</span> jugadores conectados<span class="dots"></span></div>
+        <div id="empty-hint" class="text-center opacity-80 my-12"><div class="text-7xl mb-3 animate-bounce">📱</div><div class="text-xl font-bold">¡Ingresa el PIN para unirte al juego!</div></div>
+        <div id="players-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-5 w-full max-w-7xl"></div>
+      </div>
+      <div class="shrink-0 p-5 flex justify-center gap-4 glass border-t border-white/10">
+        <button onclick="if(confirm('¿Cancelar?'))endGame()" class="px-6 py-3 font-bold rounded-2xl glass hover:bg-white/20 transition">Cancelar</button>
+        <button id="btn-start" onclick="hostStart()" class="px-14 py-3.5 text-2xl font-black text-white bg-[#1368ce] hover:bg-[#0f55b0] rounded-2xl btn3d opacity-40 shadow-2xl transition" disabled>▶ Comenzar Partida</button>
+      </div>
+    </div>`, 'stage-bg text-white');
+  try { if (window.QRCode) new QRCode($('qr'), { text: url + '?pin=' + H.pin, width: 92, height: 92 }); else $('qr').textContent = '📱'; } catch (e) { $('qr').textContent = '📱'; }
+}
+window.kick = async id => { if (confirm('¿Expulsar?')) { try { await deleteDoc(doc(playersCol(), id)); } catch (e) {} } };
+window.hostStart = async () => { await updateDoc(doc(gamesCol(), H.pin), { state: 'question', qIndex: 0, startAt: Date.now() }); };
+function hostOptionsHTML(q) {
+  if (q.type === 'type') return `<div class="text-center text-3xl font-black text-white/90 pb-12">✍️ Los jugadores están escribiendo su respuesta...</div>`;
+  if (q.type === 'slider') return `<div class="text-center text-3xl font-black text-white/90 pb-12">🎚️ Los jugadores están usando el control deslizante...</div>`;
+  return `<div class="grid grid-cols-2 gap-4 w-full max-w-6xl mx-auto p-4">${visibleOpts(q).map(i => `
+    <div ${optBox(q, i)} class="slide-up rounded-3xl shadow-2xl flex items-center p-6 text-white text-2xl md:text-4xl font-black gap-5 min-h-[110px] border border-white/20">${shape(optIdx(q, i), 44)}<span class="break-words min-w-0">${esc(q.options[i])}</span></div>`).join('')}</div>`;
+}
+function hostQuestion() {
+  const g = H.game, q = g.questions[g.qIndex];
+  screen(`
+    <div class="glass shadow-2xl px-8 py-4 flex items-center justify-between shrink-0 border-b border-white/10">
+      <div class="font-black text-lg text-white/80">Pregunta ${g.qIndex + 1} de ${g.questions.length}</div>
+      <div id="htimer" class="text-6xl font-black text-purple-300 drop-shadow">${q.time}</div>
+      <button onclick="hostShowResults()" class="px-6 py-2.5 font-black text-white bg-[#1368ce] hover:bg-[#0f55b0] rounded-xl btn3d">Omitir pregunta</button>
+    </div>
+    <div class="h-2.5 bg-black/40 shrink-0"><div id="hbar" class="bar h-2.5 bg-gradient-to-r from-purple-500 to-pink-500 shadow-lg" style="width:100%"></div></div>
+    <div class="glass mx-8 mt-6 p-6 rounded-3xl text-center shadow-2xl border border-white/15 shrink-0">
+      <h1 class="text-3xl md:text-5xl font-black leading-tight">${esc(q.text)}</h1>
+    </div>
+    <div class="flex-1 flex flex-col items-center justify-center min-h-0 px-6 py-4">
+      ${q.image ? `<img src="${esc(q.image)}" class="max-h-[35vh] object-contain rounded-2xl shadow-xl mb-4 border border-white/20">` : ''}
+      <div id="hcount" class="text-3xl font-black text-purple-200">Respuestas: 0 / ${H.players.length}</div>
+    </div>
+    ${hostOptionsHTML(q)}`, 'stage-bg text-white');
+  H.timer = setInterval(() => {
+    if (!H) return;
+    const left = q.time - (Date.now() - H.game.startAt) / 1000;
+    const t = $('htimer'); if (t) t.textContent = Math.max(0, Math.ceil(left));
+    const b = $('hbar'); if (b) b.style.width = Math.max(0, left / q.time * 100) + '%';
+    if (left <= 0) hostShowResults();
+  }, 200);
+}
+window.hostShowResults = async () => {
+  if (!H || H.busy || !H.game || H.game.state !== 'question') return;
+  H.busy = true; clearInterval(H.timer);
+  const g = H.game, q = g.questions[g.qIndex];
+  const ev = H.players.map(p => {
+    const answered = p.answerQ === g.qIndex;
+    const correct = answered && isCorrect(q, p.answer);
+    const r = calcPoints(q, correct, answered ? p.answerMs : q.time * 1000, p.streak || 0);
+    return { p, correct, r, total: (p.score || 0) + r.pts + r.bonus };
+  });
+  const ranked = [...ev].sort((a, b) => b.total - a.total);
+  try {
+    const batch = writeBatch(db);
+    ev.forEach(e => batch.update(doc(playersCol(), e.p.id), {
+      score: e.total, streak: e.r.streak, lastPoints: e.r.pts + e.r.bonus, lastBonus: e.r.bonus,
+      lastCorrect: e.correct, rank: ranked.indexOf(e) + 1, resultQ: g.qIndex
+    }));
+    batch.update(doc(gamesCol(), H.pin), { state: 'result' });
+    await batch.commit();
+  } catch (e) { H.busy = false; }
+};
+function lbRows(players, idx, n) {
+  const medals = ['🥇', '🥈', '🥉'], edge = ['#ffd700', '#c0c0c0', '#cd7f32'];
+  return [...players].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, n).map((p, i) => `
+    <div class="slide-in flex items-center justify-between glass rounded-2xl shadow-xl px-5 py-3 text-white font-black border-l-8 border border-white/15" style="border-left-color:${edge[i] || '#a0aec0'};animation-delay:${i * 90}ms">
+      <span class="flex items-center gap-4 min-w-0"><span class="w-8 text-center text-2xl shrink-0">${medals[i] || i + 1}</span>${avatarHTML(p.avatar, 46)}<span class="truncate text-lg">${esc(p.nickname)}</span>${p.streak >= 2 ? `<span class="text-orange-400 text-base shrink-0">🔥${p.streak}</span>` : ''}</span>
+      <span class="shrink-0 text-xl">${(p.score || 0).toLocaleString()} ${p.resultQ === idx && p.lastPoints ? `<span class="text-green-400 text-base ml-2">+${p.lastPoints}</span>` : ''}</span>
+    </div>`).join('');
+}
+function hostResultScreen() {
+  const g = H.game, last = g.qIndex + 1 >= g.questions.length;
+  screen(`
+    <div class="glass shadow-2xl px-8 py-4 flex items-center justify-between shrink-0 border-b border-white/10">
+      <div class="font-black text-lg text-white/80">Pregunta ${g.qIndex + 1} de ${g.questions.length} · Resultados</div>
+      <button onclick="hostNext()" class="px-8 py-3 font-black text-white bg-[#1368ce] hover:bg-[#0f55b0] rounded-2xl btn3d text-lg shadow-xl">${last ? '🏆 Ver Podio Final' : 'Siguiente Pregunta ▶'}</button>
+    </div>
+    <div id="hres-body" class="flex-1 p-8 overflow-y-auto"></div>`, 'stage-bg text-white');
+}
+function hostResultInner() {
+  const body = $('hres-body'); if (!body) return;
+  const g = H.game, q = g.questions[g.qIndex], ps = H.players;
+  const answered = ps.filter(p => p.answerQ === g.qIndex);
+  let bars = '';
+  if (['quiz', 'tf', 'poll'].includes(q.type)) {
+    const vis = visibleOpts(q), counts = vis.map(i => answered.filter(p => Number(p.answer) === i).length), max = Math.max(1, ...counts);
+    bars = vis.map((i, k) => `<div class="flex flex-col items-center w-28">
+      <div class="font-black mb-2 text-2xl">${counts[k]}</div>
+      <div class="bar w-full rounded-t-2xl shadow-2xl border-t border-x border-white/30" style="height:${Math.max(12, counts[k] / max * 220)}px;background:${OPT[optIdx(q, i)].c}"></div>
+      <div class="mt-2 text-center text-xs font-black truncate w-full px-1">${esc(q.options[i])}</div>
+      ${q.type !== 'poll' && i === q.correct ? '<div class="text-green-400 text-3xl mt-1">✓</div>' : '<div class="h-9"></div>'}</div>`).join('');
+  } else {
+    const ok = ps.filter(p => p.resultQ === g.qIndex && p.lastCorrect).length, bad = answered.length - ok, none = ps.length - answered.length;
+    const max = Math.max(1, ok, bad, none);
+    bars = [['Correctas', ok, '#26890c'], ['Incorrectas', bad, '#e21b3c'], ['Sin respuesta', none, '#666']].map(([l, n, c]) => `<div class="flex flex-col items-center w-32">
+      <div class="font-black mb-2 text-2xl">${n}</div><div class="bar w-full rounded-t-2xl shadow-2xl border-t border-x border-white/30" style="height:${Math.max(12, n / max * 220)}px;background:${c}"></div><div class="mt-2 text-sm font-black">${l}</div></div>`).join('');
+  }
+  body.innerHTML = `
+    <h2 class="text-3xl md:text-4xl font-black text-center mb-4">${esc(q.text)}</h2>
+    ${q.type !== 'poll' ? `<div class="text-center text-2xl mb-8 font-bold">Respuesta correcta: <span class="font-black text-green-400 px-4 py-1 rounded-xl glass border border-green-500/30">${esc(correctText(q))}</span></div>` : '<div class="mb-6"></div>'}
+    <div class="flex flex-wrap gap-12 justify-center items-end mb-12">${bars}</div>
+    <div class="max-w-2xl mx-auto space-y-3"><h3 class="font-black text-xl text-center mb-4">🏆 Tabla de Clasificación</h3>${lbRows(ps, g.qIndex, 5)}</div>`;
+}
+window.hostNext = async () => {
+  const g = H.game, ref = doc(gamesCol(), H.pin);
+  if (g.qIndex + 1 < g.questions.length) await updateDoc(ref, { state: 'question', qIndex: g.qIndex + 1, startAt: Date.now() });
+  else await updateDoc(ref, { state: 'podium' });
+};
+function hostPodium() {
+  screen(`${confetti()}
+    <div class="relative z-10 flex flex-col items-center w-full min-h-full p-6 md:p-8">
+      <h1 class="text-5xl md:text-7xl font-black mb-8 mt-2 pop tracking-tight">🏆 ¡Podio de Campeones!</h1>
+      <div id="podium-body" class="w-full flex flex-col items-center flex-1 justify-center"></div>
+      <div class="flex gap-4 mt-8 mb-4">
+        <button onclick="exportResults()" class="px-6 py-3.5 glass font-black rounded-2xl hover:bg-white/20 transition border border-white/20">⬇️ Descargar Resultados CSV</button>
+        <button onclick="endGame()" class="px-10 py-3.5 bg-white text-purple-900 font-black rounded-2xl btn3d text-lg shadow-2xl">Finalizar Partida</button>
+      </div>
+    </div>`, 'stage-bg text-white');
+}
+function hostPodiumInner() {
+  const b = $('podium-body'); if (!b) return;
+  const s = [...H.players].sort((a, c) => (c.score || 0) - (a.score || 0));
+  const col = (p, h, bg, fs, n) => p ? `<div class="flex flex-col items-center slide-up" style="animation-delay:${n === 1 ? 400 : n === 2 ? 200 : 0}ms">
+      ${n === 1 ? '<div class="text-5xl -mb-4 pop">👑</div>' : ''}${avatarHTML(p.avatar, n === 1 ? 130 : 100)}
+      <div class="font-black mb-3 mt-2 ${fs} text-center max-w-[11rem] truncate">${esc(p.nickname)}<br><span class="text-lg opacity-90 font-bold">${(p.score || 0).toLocaleString()} pts</span></div>
+      <div class="${bg} w-32 md:w-44 ${h} rounded-t-3xl flex items-center justify-center text-6xl font-black text-black/70 shadow-2xl border-t border-x border-white/40">${n}</div></div>` : '';
+  const rest = s.slice(3);
+  const restHTML = rest.length ? `<div class="mt-10 w-full max-w-6xl">
+      <h3 class="text-center font-black text-xl opacity-90 mb-4">💙 ¡Gran esfuerzo de todos los participantes!</h3>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">${rest.map((p, i) => `
+        <div class="glass rounded-3xl p-4 pt-5 flex flex-col items-center relative slide-up border border-white/15" style="animation-delay:${i * 60}ms">
+          <span class="absolute top-3 left-3 text-xs font-black bg-black/40 rounded-full px-2.5 py-0.5 border border-white/20">#${i + 4}</span>
+          ${avatarHTML(p.avatar, 80, true, 'sad')}
+          <div class="font-black mt-2 truncate max-w-full text-base">${esc(p.nickname)}</div>
+          <div class="text-sm font-bold opacity-75">${(p.score || 0).toLocaleString()} pts</div>
+        </div>`).join('')}</div></div>` : '';
+  b.innerHTML = `<div class="flex items-end justify-center gap-3 md:gap-6">${col(s[1], 'h-36', 'bg-slate-300', 'text-2xl', 2)}${col(s[0], 'h-52', 'bg-yellow-400', 'text-3xl', 1)}${col(s[2], 'h-28', 'bg-amber-700', 'text-xl', 3)}</div>${restHTML}`;
+}
+window.exportResults = () => {
+  const s = [...H.players].sort((a, c) => (c.score || 0) - (a.score || 0));
+  download('resultados_quizgo.csv', 'Posicion,Jugador,Puntaje\n' + s.map((p, i) => `${i + 1},${csvCell(p.nickname)},${p.score || 0}`).join('\n'), 'text/csv');
+};
+window.endGame = async () => {
+  const h = H;
+  if (h) { try { const b = writeBatch(db); h.players.forEach(p => b.delete(doc(playersCol(), p.id))); b.delete(doc(gamesCol(), h.pin)); await b.commit(); } catch (e) {} }
+  cleanup(); showLibrary();
+};
+
+// ================= JUGADOR =================
+window.joinGame = async () => {
+  if (!user) return alert('No hay conexión con Firebase.');
+  const pin = $('in-pin').value.trim(), nick = $('in-nick').value.trim().slice(0, 20);
+  if (!pin || !nick) return alert('Ingresa un PIN y tu apodo.');
+  try {
+    const gs = await getDoc(doc(gamesCol(), pin));
+    if (!gs.exists()) return alert('Juego no encontrado. Revisa el PIN.');
+    if (gs.data().state === 'podium') return alert('Este juego ya ha finalizado.');
+    const others = await getDocs(query(playersCol(), where('gamePin', '==', pin)));
+    let taken = false; others.forEach(d => { const x = d.data(); if (x.uid !== user.uid && norm(x.nickname) === norm(nick)) taken = true; });
+    if (taken) return alert('Ese apodo ya está en uso en esta sala.');
+    AVED = { av: loadAvatar(), mode: 'join', pin, nick };
+    return renderAvatarEditor();
+  } catch (e) { alert('Error: ' + e.message); }
+};
+window.doJoin = async () => {
+  const { pin, nick, av } = AVED;
+  try {
+    const id = `${pin}_${user.uid}`;
+    await setDoc(doc(playersCol(), id), { gamePin: pin, uid: user.uid, nickname: nick, avatar: av, score: 0, streak: 0, answer: null, answerQ: -1, answerMs: 0, resultQ: -1, lastPoints: 0, lastBonus: 0, lastCorrect: false, rank: 0 });
+    AVED = null;
+    cleanup();
+    Pl = { pin, id, game: null, me: null, unsub: [], key: '', startLocal: 0, qStarted: -1, answeredQ: -1, timeUpQ: -1, timer: null };
+    Pl.unsub.push(onSnapshot(doc(gamesCol(), pin), s => {
+      if (!Pl) return;
+      if (!s.exists()) { if (!Pl.game || Pl.game.state !== 'podium') alert('El anfitrión finalizó la partida.'); return showLanding(); }
+      Pl.game = s.data(); playerRender();
+    }));
+    Pl.unsub.push(onSnapshot(doc(playersCol(), id), s => {
+      if (!Pl) return;
+      if (!s.exists()) { if (Pl.me && Pl.game && Pl.game.state !== 'podium') alert('Fuiste expulsado.'); return showLanding(); }
+      Pl.me = s.data(); playerRender();
+    }));
+  } catch (e) { alert('Error: ' + e.message); }
+};
+function playerRender() {
+  if (!Pl || !Pl.game || !Pl.me) return;
+  const g = Pl.game, me = Pl.me, st = g.state, idx = g.qIndex, q = g.questions[idx];
+  if (st === 'question' && Pl.qStarted !== idx) { Pl.qStarted = idx; Pl.startLocal = performance.now(); }
+  let key;
+  if (st === 'lobby') key = 'lobby';
+  else if (st === 'question') key = `q${idx}-${Pl.answeredQ === idx ? 'a' : Pl.timeUpQ === idx ? 't' : 'o'}`;
+  else if (st === 'result') key = `r${idx}-${me.resultQ === idx}`;
+  else key = 'podium';
+  if (key === Pl.key) return;
+  Pl.key = key; clearInterval(Pl.timer);
+
+  if (st === 'lobby') {
+    screen(`${bubbles()}<div class="relative z-10 flex-1 flex flex-col items-center justify-center p-6 text-center">
+      <div class="glass rounded-3xl p-8 flex flex-col items-center slide-up border border-white/20 shadow-2xl max-w-sm w-full">
+        <div class="relative mb-4"><div class="absolute inset-0 rounded-full blur-3xl opacity-70" style="background:${AV_COLORS[(me.avatar || DEF_AV).c || 0][0]}"></div><div class="relative">${avatarHTML(me.avatar, 170)}</div></div>
+        <h1 class="text-4xl font-black mb-2 pop">¡Estás dentro!</h1>
+        <p class="text-2xl font-black px-6 py-1.5 rounded-full bg-black/30 mb-4 border border-white/15">${esc(me.nickname)}</p>
+        <p class="text-sm font-bold opacity-80 dots">Esperando al anfitrión</p>
+      </div>
+      <button onclick="avChange()" class="glass px-8 py-3 rounded-2xl font-black hover:bg-white/25 transition mt-6 border border-white/20 shadow-lg">🎨 Cambiar personaje</button></div>`, 'stage-bg text-white');
+  } else if (st === 'question') {
+    if (key.endsWith('-a')) return screen(`<div class="flex-1 flex flex-col items-center justify-center text-3xl font-black text-white text-center p-6 stage-bg">${avatarHTML(me.avatar, 140)}<div class="mt-6">¡Respuesta enviada!<br><span class="text-xl font-bold opacity-80">Esperando resultados...</span></div></div>`, 'stage-bg text-white');
+    if (key.endsWith('-t')) return screen(`<div class="flex-1 flex flex-col items-center justify-center text-3xl font-black text-white text-center p-6 stage-bg"><div class="text-7xl mb-4 animate-bounce">⌛</div>¡Se acabó el tiempo!</div>`, 'stage-bg text-white');
+    screen(`
+      <div class="glass shadow-2xl px-5 py-3.5 flex justify-between items-center shrink-0 border-b border-white/10"><div class="font-black text-sm">${idx + 1}/${g.questions.length}</div><div id="ptimer" class="text-3xl font-black text-purple-300">${q.time}</div></div>
+      <div class="px-5 py-4 text-center font-black text-xl shrink-0 leading-tight">${esc(q.text)}</div>
+      <div class="flex-1 p-3 min-h-0">${answerPanel(q, 'playerSubmit')}</div>`, 'stage-bg text-white');
+    Pl.timer = setInterval(() => {
+      if (!Pl) return;
+      const left = Math.max(0, q.time - (performance.now() - Pl.startLocal) / 1000);
+      const el = $('ptimer'); if (el) el.textContent = Math.ceil(left);
+      if (left <= 0) { clearInterval(Pl.timer); if (Pl.answeredQ !== idx) { Pl.timeUpQ = idx; playerRender(); } }
+    }, 250);
+  } else if (st === 'result') {
+    if (me.resultQ !== idx) return screen(`<div class="flex-1 flex items-center justify-center text-3xl font-black stage-bg text-white">Calculando puntaje...</div>`);
+    const answered = me.answerQ === idx;
+    if (q.type === 'poll') return screen(`<div class="flex-1 flex flex-col items-center justify-center p-6 text-center stage-bg text-white"><h1 class="text-4xl font-black pop">¡Respuesta registrada!</h1></div>`);
+    const ok = me.lastCorrect;
+    screen(`<div class="flex-1 flex flex-col items-center justify-center p-6 text-center">
+      <div class="mb-4">${avatarHTML(me.avatar, 110)}</div>
+      <div class="text-6xl mb-2 pop">${ok ? '✓' : '✗'}</div>
+      <h1 class="text-5xl font-black mb-4 pop">${ok ? '¡Correcto!' : answered ? 'Incorrecto' : 'Sin respuesta'}</h1>
+      ${ok ? `<div class="text-4xl font-black mb-3 text-yellow-300">+${me.lastPoints} pts</div>` : `<div class="text-xl mb-3 font-semibold opacity-90">Respuesta correcta: <b>${esc(correctText(q))}</b></div>`}
+      ${me.streak >= 2 ? `<div class="text-2xl font-black mb-4 text-orange-400">🔥 Racha de ${me.streak}${me.lastBonus ? ` (+${me.lastBonus})` : ''}</div>` : ''}
+      <div class="glass px-8 py-3 rounded-2xl font-black text-2xl border border-white/20 shadow-xl mb-3">Puntaje: ${(me.score || 0).toLocaleString()}</div>
+      <div class="text-lg font-bold opacity-90">Posición actual: #${me.rank}</div></div>`, ok ? 'bg-gradient-to-br from-green-600 to-emerald-900 text-white' : 'bg-gradient-to-br from-red-600 to-rose-950 text-white');
+  } else {
+    const sad = me.rank >= 4, win = me.rank >= 1 && me.rank <= 3;
+    screen(`${win ? confetti() : bubbles()}<div class="relative z-10 flex-1 flex flex-col items-center justify-center p-6 text-center">
+      <div class="glass rounded-3xl p-8 flex flex-col items-center slide-up border border-white/20 shadow-2xl max-w-sm w-full">
+        ${avatarHTML(me.avatar, 160, true, sad ? 'sad' : '')}
+        <div class="text-6xl my-3">${me.rank === 1 ? '🥇' : me.rank === 2 ? '🥈' : me.rank === 3 ? '🥉' : '😢'}</div>
+        <h1 class="text-3xl font-black mb-2">${sad ? '¡Buen intento!' : '¡Excelente trabajo!'}</h1>
+        <div class="text-2xl font-black mb-1">Posición: #${me.rank || '-'}</div>
+        <div class="text-xl font-bold opacity-90">Puntaje total: ${(me.score || 0).toLocaleString()}</div>
+      </div>
+      <button onclick="showLanding()" class="px-10 py-3.5 mt-8 bg-white text-purple-900 font-black rounded-2xl btn3d text-lg shadow-2xl">Volver al inicio</button></div>`, 'stage-bg text-white');
+  }
+}
+window.playerSubmit = async val => {
+  if (!Pl || !Pl.game) return;
+  const idx = Pl.game.qIndex, q = Pl.game.questions[idx];
+  if (Pl.answeredQ === idx || Pl.timeUpQ === idx) return;
+  if (q.type === 'type' && !String(val).trim()) return;
+  const ms = Math.min(q.time * 1000, Math.round(performance.now() - Pl.startLocal));
+  Pl.answeredQ = idx; playerRender();
+  try { await updateDoc(doc(playersCol(), Pl.id), { answer: val, answerQ: idx, answerMs: ms }); } catch (e) {}
+};
+
+// ================= MODO SOLITARIO =================
+window.soloStart = id => {
+  const qz = loadQuizzes().find(x => x.id === id); if (!qz) return;
+  cleanup(); S = { quiz: qz, i: 0, score: 0, streak: 0, okCount: 0, startLocal: 0, timer: null, done: false };
+  soloQuestion();
+};
+function soloQuestion() {
+  const q = S.quiz.questions[S.i]; S.done = false; S.startLocal = performance.now();
+  screen(`
+    <div class="glass shadow-2xl px-6 py-4 flex justify-between items-center shrink-0 border-b border-white/10">
+      <div class="font-black text-sm md:text-base">${S.i + 1}/${S.quiz.questions.length} · ${S.score.toLocaleString()} pts</div>
+      <div id="ptimer" class="text-3xl font-black text-purple-300">${q.time}</div>
+      <button onclick="if(confirm('¿Salir?'))showLibrary()" class="text-sm font-bold text-white/70 hover:text-white px-3 py-1.5 rounded-xl hover:bg-white/10 transition">Salir</button>
+    </div>
+    <div class="glass mx-6 mt-6 p-6 rounded-3xl text-center shadow-2xl border border-white/15 shrink-0">
+      <div class="text-2xl md:text-3xl font-black leading-tight">${esc(q.text)}</div>
+    </div>
+    ${q.image ? `<img src="${esc(q.image)}" class="max-h-40 object-contain mx-auto my-3 rounded-2xl border border-white/20">` : ''}
+    <div class="flex-1 p-4 min-h-0">${answerPanel(q, 'soloSubmit')}</div>`, 'stage-bg text-white');
+  S.timer = setInterval(() => {
+    if (!S) return;
+    const left = Math.max(0, q.time - (performance.now() - S.startLocal) / 1000);
+    const el = $('ptimer'); if (el) el.textContent = Math.ceil(left);
+    if (left <= 0) soloSubmit(null);
+  }, 250);
+}
+window.soloSubmit = val => {
+  if (!S || S.done) return;
+  const q = S.quiz.questions[S.i];
+  if (val !== null && q.type === 'type' && !String(val).trim()) return;
+  S.done = true; clearInterval(S.timer);
+  const ms = Math.min(q.time * 1000, performance.now() - S.startLocal);
+  const ok = val !== null && isCorrect(q, val);
+  const r = calcPoints(q, ok, ms, S.streak);
+  S.score += r.pts + r.bonus; S.streak = r.streak; if (ok) S.okCount++;
+  const last = S.i + 1 >= S.quiz.questions.length;
+  screen(`<div class="flex-1 flex flex-col items-center justify-center p-6 text-center">
+    ${q.type === 'poll' ? '<h1 class="text-4xl font-black">Respuesta registrada</h1>' : `
+    <div class="text-7xl mb-3 pop">${ok ? '✓' : '✗'}</div>
+    <h1 class="text-5xl font-black mb-4 pop">${ok ? '¡Correcto!' : val === null ? 'Tiempo agotado' : 'Incorrecto'}</h1>
+    ${ok ? `<div class="text-4xl font-black mb-3 text-yellow-300">+${r.pts + r.bonus} pts</div>` : `<div class="text-xl mb-3 font-semibold opacity-90">Respuesta correcta: <b>${esc(correctText(q))}</b></div>`}
+    ${S.streak >= 2 ? `<div class="text-2xl font-black mb-4 text-orange-400">🔥 Racha de ${S.streak}</div>` : ''}`}
+    <div class="glass px-8 py-3 rounded-2xl font-black text-2xl border border-white/20 shadow-xl mb-8">Puntaje total: ${S.score.toLocaleString()}</div>
+    <button onclick="${last ? 'soloEnd()' : 'soloNext()'}" class="px-10 py-4 bg-white text-purple-900 font-black rounded-2xl btn3d text-lg shadow-2xl">${last ? 'Ver resultado final' : 'Siguiente pregunta ▶'}</button></div>`, q.type === 'poll' ? 'stage-bg text-white' : ok ? 'bg-gradient-to-br from-green-600 to-emerald-950 text-white' : 'bg-gradient-to-br from-red-600 to-rose-950 text-white');
+};
+window.soloNext = () => { S.i++; soloQuestion(); };
+window.soloEnd = () => {
+  const total = S.quiz.questions.filter(q => q.type !== 'poll').length;
+  screen(`${confetti()}<div class="relative z-10 flex-1 flex flex-col items-center justify-center p-6 text-center">
+    <div class="glass rounded-3xl p-8 flex flex-col items-center slide-up border border-white/20 shadow-2xl max-w-sm w-full">
+      <div class="text-7xl mb-4">🏆</div>
+      <h1 class="text-4xl font-black mb-3">¡Quiz Completado!</h1>
+      <div class="text-3xl font-black text-yellow-300 mb-2">${S.score.toLocaleString()} pts</div>
+      <div class="text-xl font-bold opacity-90 mb-6">Aciertos: ${S.okCount} de ${total}</div>
+    </div>
+    <div class="flex gap-4 mt-8">
+      <button onclick="soloStart('${S.quiz.id}')" class="px-8 py-3.5 bg-white text-purple-900 font-black rounded-2xl btn3d shadow-xl">Jugar de nuevo</button>
+      <button onclick="showLibrary()" class="px-8 py-3.5 glass font-black rounded-2xl hover:bg-white/20 transition border border-white/20">Volver a la biblioteca</button>
+    </div></div>`, 'stage-bg text-white');
+};
+
+initAuth();
+</script>
+</body>
+</html>
