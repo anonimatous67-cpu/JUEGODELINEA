@@ -143,6 +143,18 @@ const mkQ = (type = 'quiz') => ({
 });
 const clone = o => JSON.parse(JSON.stringify(o));
 
+// ================= CARPETAS =================
+const FOLDERS = [
+  { id: 'tablas', name: 'Tablas de Matemática', icon: '🔢', desc: 'Sumar, restar, multiplicar y dividir · 30 preguntas c/u', grad: ['#ff9f1c', '#ff5a5f'] }
+];
+window.__cf = null; // carpeta actualmente abierta en la biblioteca
+
+// ================= SESIÓN (para reconectarse) =================
+const SES = 'quizgo_session';
+const getSession = () => { try { return JSON.parse(localStorage.getItem(SES) || 'null'); } catch (e) { return null; } };
+const setSession = s => { try { localStorage.setItem(SES, JSON.stringify(s)); } catch (e) {} };
+const clearSession = () => { try { localStorage.removeItem(SES); } catch (e) {} };
+
 // ================= PERSONAJES =================
 const AV_COLORS = [['#ff5a5f','#c93a40'],['#ff9f1c','#cc7a00'],['#ffd23f','#c9a200'],['#4ecb71','#2e9a4f'],['#2ec4b6','#1b8f84'],['#4d9de0','#2f6fb0'],['#7b61ff','#5540c9'],['#c77dff','#9b4fd1'],['#ff7eb6','#d35a90'],['#a0aec0','#718096']];
 const AV_BODY_N = ['Blob', 'Gatito', 'Osito', 'Conejo', 'Robot', 'Fantasma'];
@@ -208,6 +220,10 @@ function toast(html) {
   t.style.top = (20 + document.querySelectorAll('.toast').length * 64) + 'px';
   t.innerHTML = html; document.body.appendChild(t); setTimeout(() => t.remove(), 2900);
 }
+// Avisos de conexión (Firebase reconecta solo cuando vuelve internet)
+window.addEventListener('offline', () => toast('<span>📡 Sin conexión… se reconectará solo</span>'));
+window.addEventListener('online', () => toast('<span>✅ Conexión recuperada</span>'));
+
 const CARD_GRADS = [['#46178f', '#9b51e0'], ['#1368ce', '#2f80ed'], ['#e21b3c', '#eb5757'], ['#d89e00', '#f2c94c'], ['#26890c', '#27ae60'], ['#0f8b8d', '#20b2aa']];
 const rnd = n => Math.floor(Math.random() * n);
 const avRand = () => ({ b: rnd(6), c: rnd(10), e: rnd(4), m: rnd(4), a: rnd(7), an: rnd(6) });
@@ -292,9 +308,51 @@ function calcPoints(q, correct, ms, prev) {
   return { pts, bonus, streak };
 }
 
+// ================= GENERADOR DE TABLAS (30 preguntas, más tiempo) =================
+const TAB_TIME = 60; // segundos por pregunta en la carpeta de tablas
+function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function genTabla(op, seed) {
+  const R = mulberry(seed);
+  const shuf = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const raw = [];
+  for (let t = 1; t <= 10; t++) {
+    shuf([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]).slice(0, 3).forEach(m => {
+      if (op === 'sum') { const a = t + m; raw.push({ t: `¿Cuánto es ${t} + ${m}?`, a, near: [a + 1, a - 1, a + 2, a - 2, a + 10, a - 10, a + 3] }); }
+      else if (op === 'res') { const a = m; raw.push({ t: `¿Cuánto es ${t + m} − ${t}?`, a, near: [a + 1, a - 1, a + 2, a - 2, t, t + m, a + 3] }); }
+      else if (op === 'mul') { const a = t * m; raw.push({ t: `¿Cuánto es ${t} × ${m}?`, a, near: [t * (m + 1), t * (m - 1), a + 1, a - 1, a + 2, a - 2, (t + 1) * m, (t - 1) * m] }); }
+      else { const a = m; raw.push({ t: `¿Cuánto es ${t * m} ÷ ${t}?`, a, near: [a + 1, a - 1, a + 2, a - 2, t, a + 3, t + 1] }); }
+    });
+  }
+  const build = r => {
+    const cand = shuf([...new Set(r.near)].filter(x => x >= 0 && x !== r.a));
+    const wrong = cand.slice(0, 3);
+    while (wrong.length < 3) { const x = r.a + wrong.length + 3 + Math.floor(R() * 6); if (x !== r.a && !wrong.includes(x)) wrong.push(x); }
+    const pos = Math.floor(R() * 4); const opts = [...wrong]; opts.splice(pos, 0, r.a);
+    return { ...mkQ('quiz'), text: r.t, options: opts.map(String), correct: pos, time: TAB_TIME };
+  };
+  return shuf(raw).map(build);
+}
+function genMezcla(seed) {
+  const R = mulberry(seed);
+  const all = [['sum', 8], ['res', 7], ['mul', 8], ['div', 7]].flatMap(([op, n], k) => genTabla(op, seed + 10 + k).slice(0, n));
+  for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
+  return all;
+}
+const TAB_DEFS = [
+  { id: 'tab_suma',  title: '➕ Tabla de Sumar Completa (30 Preguntas)',        gen: () => genTabla('sum', 101) },
+  { id: 'tab_resta', title: '➖ Tabla de Restar Completa (30 Preguntas)',        gen: () => genTabla('res', 202) },
+  { id: 'tab_mult',  title: '✖️ Tabla de Multiplicar Completa (30 Preguntas)',   gen: () => genTabla('mul', 303) },
+  { id: 'tab_div',   title: '➗ Tabla de Dividir Completa (30 Preguntas)',        gen: () => genTabla('div', 404) },
+  { id: 'tab_mezcla', title: '🧮 Las 4 Operaciones Mezcladas (30 Preguntas)',    gen: () => genMezcla(505) }
+];
+const LS_DEL = 'quizgo_deleted_tab';
+const getDeletedTab = () => { try { return JSON.parse(localStorage.getItem(LS_DEL) || '[]'); } catch (e) { return []; } };
+
 // ================= GENERADOR DE 20 PREGUNTAS POR CADA CURSO SOLICITADO =================
 const LS = 'quizgo_quizzes_all_v5';
 function loadQuizzes() {
+
+  
   const makeComu20 = () => [
     { t: '¿Cuál es un sustantivo propio?', o: ['perro', 'María', 'mesa', 'lápiz'], c: 1 },
     { t: '¿Qué palabra está escrita correctamente?', o: ['zanahoria', 'sanahoria', 'sanaoria', 'zahanaoria'], c: 0 },
@@ -522,6 +580,13 @@ function loadQuizzes() {
         l.unshift(defQ);
       }
     });
+    // Carpeta de tablas: se agregan solo si faltan (y no fueron eliminadas por el usuario)
+    const delTab = getDeletedTab();
+    TAB_DEFS.forEach(d => {
+      if (!l.some(x => x.id === d.id) && !delTab.includes(d.id)) {
+        l.push({ id: d.id, title: d.title, folder: 'tablas', questions: d.gen() });
+      }
+    });
     saveQuizzes(l);
     return l;
   } catch (e) {
@@ -608,7 +673,9 @@ window.importFile = input => {
       const err = validate(qz);
       if (err) return alert('Archivo inválido: ' + err);
       qz.id = 'q' + Date.now(); qz.title = qz.title || 'Quiz importado';
-      const l = loadQuizzes(); l.unshift(qz); saveQuizzes(l); showLibrary();
+      if (window.__cf) qz.folder = window.__cf;
+      else if (!FOLDERS.some(fo => fo.id === qz.folder)) delete qz.folder;
+      const l = loadQuizzes(); l.unshift(qz); saveQuizzes(l); showLibrary(window.__cf);
     } catch (er) { alert('No se pudo leer el archivo: ' + er.message); }
   };
   r.readAsText(f); input.value = '';
@@ -625,7 +692,7 @@ function cleanup() {
 // ================= AUTENTICACIÓN =================
 let started = false;
 async function initAuth() {
-  onAuthStateChanged(auth, u => { if (u) { user = u; if (!started) { started = true; showLanding(); } } });
+  onAuthStateChanged(auth, u => { if (u) { user = u; if (!started) { started = true; tryResume(); } } });
   try {
     const espera = new Promise((_, rej) => setTimeout(() => rej(new Error('tiempo de espera agotado')), 12000));
     await Promise.race([signInAnonymously(auth), espera]);
@@ -635,10 +702,40 @@ async function initAuth() {
   }
 }
 
+// ================= RECONEXIÓN A PARTIDA =================
+async function tryResume() {
+  if (!getSession()) return showLanding();
+  await window.resumeSession(true);
+}
+window.resumeSession = async silent => {
+  const s = getSession();
+  if (!s || !user) return showLanding();
+  try {
+    const gs = await getDoc(doc(gamesCol(), s.pin));
+    if (!gs.exists()) { clearSession(); if (!silent) alert('La partida ya no existe.'); return showLanding(); }
+    if (s.role === 'host') {
+      if (gs.data().hostId !== user.uid) { clearSession(); return showLanding(); }
+      return attachHost(s.pin);
+    }
+    const id = `${s.pin}_${user.uid}`;
+    const ps = await getDoc(doc(playersCol(), id));
+    if (!ps.exists()) { clearSession(); if (!silent) alert('Ya no estás en esa partida.'); return showLanding(); }
+    return attachPlayer(s.pin, id, true);
+  } catch (e) {
+    if (!silent) alert('No se pudo reconectar: ' + e.message);
+    showLanding();
+  }
+};
+window.leaveGame = async del => {
+  const p = Pl; clearSession(); showLanding();
+  if (del && p) { try { await deleteDoc(doc(playersCol(), p.id)); } catch (e) {} }
+};
+
 // ================= PANTALLA PRINCIPAL =================
 window.showLanding = () => {
   cleanup();
   const pin = new URLSearchParams(location.search).get('pin') || '';
+  const ses = getSession();
   screen(`
     ${bubbles()}
     <div class="relative z-10 w-full glass border-b border-white/10 flex items-center justify-between px-6 py-4 shadow-xl shrink-0">
@@ -658,16 +755,15 @@ window.showLanding = () => {
           <button onclick="joinGame()" class="w-full py-4 text-white font-black text-lg rounded-2xl bg-[#26890c] hover:bg-[#20720a] btn3d shadow-xl transition">¡Unirse a la partida!</button>
         </div>
       </div>
+      ${ses ? `<button onclick="resumeSession()" class="mt-5 glass px-6 py-3 rounded-2xl font-black text-sm hover:bg-white/25 transition border border-white/20 shadow-lg slide-up">🔄 Volver a mi partida anterior (PIN ${esc(ses.pin)})</button>` : ''}
     </div>`, 'stage-bg text-white');
 };
 
 // ================= BIBLIOTECA =================
-window.showLibrary = () => {
-  cleanup(); ED = null;
-  const list = loadQuizzes();
-  const cards = list.map((q, i) => `
-    <div class="card-lift slide-up glass-card rounded-3xl border border-white/10 relative shadow-xl overflow-hidden flex flex-col justify-between" style="animation-delay:${i * 50}ms">
-      <div class="h-36 relative flex items-center justify-center overflow-hidden" style="background:linear-gradient(135deg,${CARD_GRADS[[...q.id].reduce((a, c) => a + c.charCodeAt(0), 0) % CARD_GRADS.length].join(',')})">
+function quizCard(q, i) {
+  return `
+    <div class="card-lift slide-up glass-card rounded-3xl border border-white/10 relative shadow-xl flex flex-col justify-between" style="animation-delay:${i * 50}ms">
+      <div class="h-36 relative flex items-center justify-center overflow-hidden rounded-t-3xl" style="background:linear-gradient(135deg,${CARD_GRADS[[...q.id].reduce((a, c) => a + c.charCodeAt(0), 0) % CARD_GRADS.length].join(',')})">
         <div class="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/20 blur-xl"></div>
         <div class="absolute -left-6 -bottom-10 w-28 h-28 rounded-full bg-white/10 blur-xl"></div>
         <div class="relative flex gap-2 text-4xl drop-shadow-md">${[...new Set(q.questions.map(x => TYPES[x.type] ? TYPES[x.type].i : '❓'))].slice(0, 4).join(' ')}</div>
@@ -694,7 +790,33 @@ window.showLibrary = () => {
         <div class="border-t border-white/10 my-1"></div>
         <button onclick="delQuiz('${q.id}')" class="w-full text-left px-4 py-2.5 hover:bg-red-500/20 text-red-400 font-bold">🗑️ Eliminar</button>
       </div>
-    </div>`).join('');
+    </div>`;
+}
+function folderCard(f, count) {
+  return `
+    <div onclick="showLibrary('${f.id}')" class="card-lift slide-up glass-card rounded-3xl border border-white/20 shadow-xl cursor-pointer flex flex-col justify-between">
+      <div class="h-36 relative flex items-center justify-center overflow-hidden rounded-t-3xl" style="background:linear-gradient(135deg,${f.grad.join(',')})">
+        <div class="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/20 blur-xl"></div>
+        <div class="absolute -left-6 -bottom-10 w-28 h-28 rounded-full bg-white/10 blur-xl"></div>
+        <div class="relative text-7xl drop-shadow-md">📁</div>
+        <span class="absolute bottom-3 right-3 bg-black/50 backdrop-blur-md text-white text-xs font-black px-3 py-1 rounded-full border border-white/15">${count} quizzes</span>
+      </div>
+      <div class="p-5">
+        <h3 class="font-black text-base text-white leading-snug mb-1">${f.icon} ${esc(f.name)}</h3>
+        <p class="text-xs text-white/60 font-medium mb-3">${esc(f.desc)}</p>
+        <div class="w-full text-center bg-white/15 text-white text-xs font-black py-2.5 rounded-xl border border-white/20">📂 Abrir carpeta</div>
+      </div>
+    </div>`;
+}
+window.showLibrary = folder => {
+  cleanup(); ED = null;
+  folder = folder || null; window.__cf = folder;
+  const all = loadQuizzes();
+  const fo = FOLDERS.find(f => f.id === folder) || null;
+  if (!fo) window.__cf = null;
+  const list = fo ? all.filter(q => q.folder === fo.id) : all.filter(q => !FOLDERS.some(f => f.id === q.folder));
+  const folderCards = fo ? '' : FOLDERS.map(f => folderCard(f, all.filter(q => q.folder === f.id).length)).join('');
+  const cards = list.map((q, i) => quizCard(q, i)).join('') || (fo ? `<div class="col-span-full text-center text-white/70 font-bold py-16">La carpeta está vacía. Crea un quiz con “+ Crear quiz”.</div>` : '');
   screen(`
     <div class="glass h-18 border-b border-white/10 flex items-center justify-between px-6 shadow-xl shrink-0">
       <div class="text-white font-black text-2xl tracking-tighter cursor-pointer flex items-center gap-2" onclick="showLanding()">
@@ -708,15 +830,16 @@ window.showLibrary = () => {
     <div class="flex-1 p-6 md:p-8 overflow-y-auto">
       <div class="flex flex-wrap justify-between items-center gap-4 mb-8">
         <div>
-          <h1 class="text-3xl font-black tracking-tight mb-1">Biblioteca de Quizzes</h1>
-          <p class="text-white/60 text-sm font-medium">Elige un tema escolar o crea el tuyo propio para jugar</p>
+          ${fo ? `<button onclick="showLibrary()" class="text-sm font-bold text-white/80 hover:text-white mb-2 px-3 py-1.5 rounded-xl glass hover:bg-white/15 transition">← Volver a la biblioteca</button>` : ''}
+          <h1 class="text-3xl font-black tracking-tight mb-1">${fo ? `📁 ${esc(fo.name)}` : 'Biblioteca de Quizzes'}</h1>
+          <p class="text-white/60 text-sm font-medium">${fo ? 'Puedes editar cada quiz y guardarlo sin iniciar la partida (⋮ → Editar quiz → Guardar)' : 'Elige un tema escolar o crea el tuyo propio para jugar'}</p>
         </div>
         <div class="flex flex-wrap gap-3 text-sm font-bold">
           <label class="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2.5 rounded-xl cursor-pointer shadow-lg transition flex items-center gap-2 border border-purple-400/30">📥 Importar CSV / JSON<input type="file" accept=".csv,.json" class="hidden" onchange="importFile(this)"></label>
           <button onclick="downloadTemplate()" class="glass hover:bg-white/20 px-5 py-2.5 rounded-xl transition border border-white/20">Descargar plantilla CSV</button>
         </div>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">${cards}</div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">${folderCards}${cards}</div>
     </div>`, 'stage-bg text-white');
 };
 window.toggleMenu = (e, id) => {
@@ -725,12 +848,22 @@ window.toggleMenu = (e, id) => {
   const m = $(id); if (m) m.classList.toggle('hidden');
 };
 window.closeAllMenus = () => document.querySelectorAll('[id^="menu-"]').forEach(m => m.classList.add('hidden'));
-window.dupQuiz = id => { const l = loadQuizzes(); const q = l.find(x => x.id === id); if (!q) return; const c = clone(q); c.id = 'q' + Date.now(); c.title += ' (copia)'; l.unshift(c); saveQuizzes(l); showLibrary(); };
-window.delQuiz = id => { if (!confirm('¿Eliminar este quiz?')) return; saveQuizzes(loadQuizzes().filter(x => x.id !== id)); showLibrary(); };
+window.dupQuiz = id => { const l = loadQuizzes(); const q = l.find(x => x.id === id); if (!q) return; const c = clone(q); c.id = 'q' + Date.now(); c.title += ' (copia)'; l.unshift(c); saveQuizzes(l); showLibrary(window.__cf); };
+window.delQuiz = id => {
+  if (!confirm('¿Eliminar este quiz?')) return;
+  if (id.startsWith('tab_')) { const d = getDeletedTab(); if (!d.includes(id)) d.push(id); try { localStorage.setItem(LS_DEL, JSON.stringify(d)); } catch (e) {} }
+  saveQuizzes(loadQuizzes().filter(x => x.id !== id)); showLibrary(window.__cf);
+};
 
 // ================= EDITOR =================
-window.newQuiz = () => { ED = { quiz: { id: 'q' + Date.now(), title: '', questions: [mkQ()] }, qi: 0 }; renderEditor(); };
+window.newQuiz = () => {
+  const q = mkQ(); const folder = window.__cf;
+  if (folder === 'tablas') q.time = TAB_TIME;
+  ED = { quiz: { id: 'q' + Date.now(), title: '', questions: [q], ...(folder ? { folder } : {}) }, qi: 0 };
+  renderEditor();
+};
 window.editQuiz = id => { const q = loadQuizzes().find(x => x.id === id); if (!q) return; ED = { quiz: clone(q), qi: 0 }; renderEditor(); };
+window.edExit = () => showLibrary(ED && ED.quiz.folder);
 const curQ = () => ED.quiz.questions[ED.qi];
 
 function renderEditor() {
@@ -775,8 +908,8 @@ function renderEditor() {
         <input value="${esc(ED.quiz.title)}" oninput="ED_title(this.value)" placeholder="Título del quiz..." class="bg-black/30 border border-white/20 rounded-xl px-4 py-2 text-sm font-black w-48 sm:w-80 text-white focus:outline-none focus:border-purple-400">
       </div>
       <div class="flex items-center gap-3 shrink-0">
-        <button class="text-white/70 hover:text-white font-bold text-sm px-4 py-2 rounded-xl hover:bg-white/10 transition" onclick="if(confirm('¿Salir sin guardar?'))showLibrary()">Salir</button>
-        <button class="glass hover:bg-white/25 text-white font-black text-sm px-5 py-2.5 rounded-xl transition border border-white/20" onclick="edSave(false)">Guardar</button>
+        <button class="text-white/70 hover:text-white font-bold text-sm px-4 py-2 rounded-xl hover:bg-white/10 transition" onclick="if(confirm('¿Salir sin guardar?'))edExit()">Salir</button>
+        <button class="glass hover:bg-white/25 text-white font-black text-sm px-5 py-2.5 rounded-xl transition border border-white/20" onclick="edSave(false)">💾 Guardar</button>
         <button class="bg-[#26890c] hover:bg-[#20720a] text-white font-black text-sm px-6 py-2.5 rounded-xl btn3d" onclick="edSave(true)">Guardar y presentar</button>
       </div>
     </div>
@@ -816,7 +949,7 @@ function renderEditor() {
 window.$ = $;
 window.ED_title = v => { ED.quiz.title = v; };
 window.edSel = i => { ED.qi = i; renderEditor(); };
-window.edAdd = t => { ED.quiz.questions.push(mkQ(t)); ED.qi = ED.quiz.questions.length - 1; renderEditor(); };
+window.edAdd = t => { const q = mkQ(t); if (ED.quiz.folder === 'tablas') q.time = TAB_TIME; ED.quiz.questions.push(q); ED.qi = ED.quiz.questions.length - 1; renderEditor(); };
 window.edDup = i => { ED.quiz.questions.splice(i + 1, 0, clone(ED.quiz.questions[i])); ED.qi = i + 1; renderEditor(); };
 window.edDel = i => {
   if (ED.quiz.questions.length === 1) return alert('El quiz debe tener al menos una pregunta.');
@@ -843,7 +976,7 @@ window.edSave = present => {
   const l = loadQuizzes(), i = l.findIndex(x => x.id === qz.id);
   if (i >= 0) l[i] = clone(qz); else l.unshift(clone(qz));
   saveQuizzes(l);
-  if (present) presentQuiz(qz.id); else showLibrary();
+  if (present) presentQuiz(qz.id); else { showLibrary(qz.folder); toast('<span>💾 Quiz guardado</span>'); }
 };
 
 // ================= PANEL DE RESPUESTA =================
@@ -863,6 +996,12 @@ function answerPanel(q, fn) {
 }
 
 // ================= ANFITRIÓN (HOST) =================
+function attachHost(pin, folder) {
+  cleanup();
+  H = { pin, game: null, players: [], unsub: [], timer: null, key: '', busy: false, seen: new Set(), folder: folder || null };
+  H.unsub.push(onSnapshot(doc(gamesCol(), pin), s => { if (H && s.exists()) { H.game = s.data(); hostRender(); } }));
+  H.unsub.push(onSnapshot(query(playersCol(), where('gamePin', '==', pin)), snap => { if (H) { H.players = snap.docs.map(d => ({ id: d.id, ...d.data() })); hostLive(); } }));
+}
 window.presentQuiz = async id => {
   if (!user) return alert('No hay conexión con Firebase.');
   const qz = loadQuizzes().find(x => x.id === id); if (!qz) return;
@@ -874,9 +1013,8 @@ window.presentQuiz = async id => {
       if (!(await getDoc(doc(gamesCol(), pin))).exists()) break;
     }
     await setDoc(doc(gamesCol(), pin), { hostId: user.uid, title: qz.title, state: 'lobby', qIndex: 0, startAt: 0, createdAt: Date.now(), questions: clone(qz.questions) });
-    H = { pin, game: null, players: [], unsub: [], timer: null, key: '', busy: false };
-    H.unsub.push(onSnapshot(doc(gamesCol(), pin), s => { if (H && s.exists()) { H.game = s.data(); hostRender(); } }));
-    H.unsub.push(onSnapshot(query(playersCol(), where('gamePin', '==', pin)), snap => { if (H) { H.players = snap.docs.map(d => ({ id: d.id, ...d.data() })); hostLive(); } }));
+    setSession({ role: 'host', pin });
+    attachHost(pin, qz.folder);
   } catch (e) { alert('No se pudo crear la partida: ' + e.message); }
 };
 function hostRender() {
@@ -1081,9 +1219,9 @@ window.exportResults = () => {
   download('resultados_quizgo.csv', 'Posicion,Jugador,Puntaje\n' + s.map((p, i) => `${i + 1},${csvCell(p.nickname)},${p.score || 0}`).join('\n'), 'text/csv');
 };
 window.endGame = async () => {
-  const h = H;
+  const h = H; clearSession();
   if (h) { try { const b = writeBatch(db); h.players.forEach(p => b.delete(doc(playersCol(), p.id))); b.delete(doc(gamesCol(), h.pin)); await b.commit(); } catch (e) {} }
-  cleanup(); showLibrary();
+  cleanup(); showLibrary(h && h.folder);
 };
 
 // ================= JUGADOR =================
@@ -1094,10 +1232,28 @@ window.joinGame = async () => {
   try {
     const gs = await getDoc(doc(gamesCol(), pin));
     if (!gs.exists()) return alert('Juego no encontrado. Revisa el PIN.');
+    const myId = `${pin}_${user.uid}`;
+    // 1) Si ya estabas en esta partida (te saliste por error / se cayó la conexión): vuelves con tu puntaje
+    const mine = await getDoc(doc(playersCol(), myId));
+    if (mine.exists()) {
+      setSession({ role: 'player', pin, nick: mine.data().nickname });
+      toast('<span>🔄 ¡Volviste a la partida!</span>');
+      return attachPlayer(pin, myId, true);
+    }
     if (gs.data().state === 'podium') return alert('Este juego ya ha finalizado.');
+    // 2) Si el apodo ya existe con otro dispositivo/navegador: permitir recuperar ese lugar
     const others = await getDocs(query(playersCol(), where('gamePin', '==', pin)));
-    let taken = false; others.forEach(d => { const x = d.data(); if (x.uid !== user.uid && norm(x.nickname) === norm(nick)) taken = true; });
-    if (taken) return alert('Ese apodo ya está en uso en esta sala.');
+    let old = null; others.forEach(d => { const x = d.data(); if (x.uid !== user.uid && norm(x.nickname) === norm(nick)) old = { id: d.id, data: x }; });
+    if (old) {
+      if (!confirm('Ese apodo ya está en esta sala.\n\n¿Eres tú y te desconectaste? Pulsa Aceptar para recuperar tu lugar y tu puntaje.\n(Si es otra persona, pulsa Cancelar y elige otro apodo.)')) return;
+      try {
+        await setDoc(doc(playersCol(), myId), { ...old.data, uid: user.uid });
+        try { await deleteDoc(doc(playersCol(), old.id)); } catch (e) {}
+        setSession({ role: 'player', pin, nick: old.data.nickname });
+        toast('<span>🔄 ¡Recuperaste tu lugar!</span>');
+        return attachPlayer(pin, myId, true);
+      } catch (e) { return alert('No se pudo recuperar tu lugar: ' + e.message); }
+    }
     AVED = { av: loadAvatar(), mode: 'join', pin, nick };
     return renderAvatarEditor();
   } catch (e) { alert('Error: ' + e.message); }
@@ -1108,24 +1264,43 @@ window.doJoin = async () => {
     const id = `${pin}_${user.uid}`;
     await setDoc(doc(playersCol(), id), { gamePin: pin, uid: user.uid, nickname: nick, avatar: av, score: 0, streak: 0, answer: null, answerQ: -1, answerMs: 0, resultQ: -1, lastPoints: 0, lastBonus: 0, lastCorrect: false, rank: 0 });
     AVED = null;
-    cleanup();
-    Pl = { pin, id, game: null, me: null, unsub: [], key: '', startLocal: 0, qStarted: -1, answeredQ: -1, timeUpQ: -1, timer: null };
-    Pl.unsub.push(onSnapshot(doc(gamesCol(), pin), s => {
-      if (!Pl) return;
-      if (!s.exists()) { if (!Pl.game || Pl.game.state !== 'podium') alert('El anfitrión finalizó la partida.'); return showLanding(); }
-      Pl.game = s.data(); playerRender();
-    }));
-    Pl.unsub.push(onSnapshot(doc(playersCol(), id), s => {
-      if (!Pl) return;
-      if (!s.exists()) { if (Pl.me && Pl.game && Pl.game.state !== 'podium') alert('Fuiste expulsado.'); return showLanding(); }
-      Pl.me = s.data(); playerRender();
-    }));
+    setSession({ role: 'player', pin, nick });
+    attachPlayer(pin, id, false);
   } catch (e) { alert('Error: ' + e.message); }
 };
+function attachPlayer(pin, id, resumed) {
+  cleanup();
+  Pl = { pin, id, game: null, me: null, unsub: [], key: '', startLocal: 0, qStarted: -1, answeredQ: -1, timeUpQ: -1, timer: null, resumed: !!resumed };
+  Pl.unsub.push(onSnapshot(doc(gamesCol(), pin), s => {
+    if (!Pl) return;
+    if (!s.exists()) {
+      if (s.metadata.fromCache) return; // sin conexión: no es que la partida haya terminado
+      if (!Pl.game || Pl.game.state !== 'podium') alert('El anfitrión finalizó la partida.');
+      clearSession(); return showLanding();
+    }
+    Pl.game = s.data(); playerRender();
+  }));
+  Pl.unsub.push(onSnapshot(doc(playersCol(), id), s => {
+    if (!Pl) return;
+    if (!s.exists()) {
+      if (s.metadata.fromCache) return;
+      if (Pl.me && Pl.game && Pl.game.state !== 'podium') alert('Fuiste expulsado.');
+      clearSession(); return showLanding();
+    }
+    Pl.me = s.data(); playerRender();
+  }));
+}
 function playerRender() {
   if (!Pl || !Pl.game || !Pl.me) return;
   const g = Pl.game, me = Pl.me, st = g.state, idx = g.qIndex, q = g.questions[idx];
-  if (st === 'question' && Pl.qStarted !== idx) { Pl.qStarted = idx; Pl.startLocal = performance.now(); }
+  if (st === 'question' && Pl.qStarted !== idx) {
+    Pl.qStarted = idx;
+    // Si volvió a entrar a mitad de la pregunta, el tiempo restante se calcula desde el inicio real
+    const elapsed = Pl.resumed ? Math.max(0, Date.now() - (g.startAt || Date.now())) : 0;
+    Pl.startLocal = performance.now() - elapsed;
+  }
+  Pl.resumed = false;
+  if (st === 'question' && me.answerQ === idx) Pl.answeredQ = idx; // ya había respondido antes de salirse
   let key;
   if (st === 'lobby') key = 'lobby';
   else if (st === 'question') key = `q${idx}-${Pl.answeredQ === idx ? 'a' : Pl.timeUpQ === idx ? 't' : 'o'}`;
@@ -1142,7 +1317,10 @@ function playerRender() {
         <p class="text-2xl font-black px-6 py-1.5 rounded-full bg-black/30 mb-4 border border-white/15">${esc(me.nickname)}</p>
         <p class="text-sm font-bold opacity-80 dots">Esperando al anfitrión</p>
       </div>
-      <button onclick="avChange()" class="glass px-8 py-3 rounded-2xl font-black hover:bg-white/25 transition mt-6 border border-white/20 shadow-lg">🎨 Cambiar personaje</button></div>`, 'stage-bg text-white');
+      <div class="flex gap-3 mt-6">
+        <button onclick="avChange()" class="glass px-8 py-3 rounded-2xl font-black hover:bg-white/25 transition border border-white/20 shadow-lg">🎨 Cambiar personaje</button>
+        <button onclick="if(confirm('¿Salir de la partida?'))leaveGame(true)" class="glass px-6 py-3 rounded-2xl font-bold hover:bg-white/25 transition border border-white/20 shadow-lg">Salir</button>
+      </div></div>`, 'stage-bg text-white');
   } else if (st === 'question') {
     if (key.endsWith('-a')) return screen(`<div class="flex-1 flex flex-col items-center justify-center text-3xl font-black text-white text-center p-6 stage-bg">${avatarHTML(me.avatar, 140)}<div class="mt-6">¡Respuesta enviada!<br><span class="text-xl font-bold opacity-80">Esperando resultados...</span></div></div>`, 'stage-bg text-white');
     if (key.endsWith('-t')) return screen(`<div class="flex-1 flex flex-col items-center justify-center text-3xl font-black text-white text-center p-6 stage-bg"><div class="text-7xl mb-4 animate-bounce">⌛</div>¡Se acabó el tiempo!</div>`, 'stage-bg text-white');
@@ -1179,7 +1357,7 @@ function playerRender() {
         <div class="text-2xl font-black mb-1">Posición: #${me.rank || '-'}</div>
         <div class="text-xl font-bold opacity-90">Puntaje total: ${(me.score || 0).toLocaleString()}</div>
       </div>
-      <button onclick="showLanding()" class="px-10 py-3.5 mt-8 bg-white text-purple-900 font-black rounded-2xl btn3d text-lg shadow-2xl">Volver al inicio</button></div>`, 'stage-bg text-white');
+      <button onclick="leaveGame(false)" class="px-10 py-3.5 mt-8 bg-white text-purple-900 font-black rounded-2xl btn3d text-lg shadow-2xl">Volver al inicio</button></div>`, 'stage-bg text-white');
   }
 }
 window.playerSubmit = async val => {
@@ -1193,6 +1371,7 @@ window.playerSubmit = async val => {
 };
 
 // ================= MODO SOLITARIO =================
+window.soloBack = () => showLibrary(window.__cf);
 window.soloStart = id => {
   const qz = loadQuizzes().find(x => x.id === id); if (!qz) return;
   cleanup(); S = { quiz: qz, i: 0, score: 0, streak: 0, okCount: 0, startLocal: 0, timer: null, done: false };
@@ -1204,7 +1383,7 @@ function soloQuestion() {
     <div class="glass shadow-2xl px-6 py-4 flex justify-between items-center shrink-0 border-b border-white/10">
       <div class="font-black text-sm md:text-base">${S.i + 1}/${S.quiz.questions.length} · ${S.score.toLocaleString()} pts</div>
       <div id="ptimer" class="text-3xl font-black text-purple-300">${q.time}</div>
-      <button onclick="if(confirm('¿Salir?'))showLibrary()" class="text-sm font-bold text-white/70 hover:text-white px-3 py-1.5 rounded-xl hover:bg-white/10 transition">Salir</button>
+      <button onclick="if(confirm('¿Salir?'))soloBack()" class="text-sm font-bold text-white/70 hover:text-white px-3 py-1.5 rounded-xl hover:bg-white/10 transition">Salir</button>
     </div>
     <div class="glass mx-6 mt-6 p-6 rounded-3xl text-center shadow-2xl border border-white/15 shrink-0">
       <div class="text-2xl md:text-3xl font-black leading-tight">${esc(q.text)}</div>
@@ -1249,7 +1428,7 @@ window.soloEnd = () => {
     </div>
     <div class="flex gap-4 mt-8">
       <button onclick="soloStart('${S.quiz.id}')" class="px-8 py-3.5 bg-white text-purple-900 font-black rounded-2xl btn3d shadow-xl">Jugar de nuevo</button>
-      <button onclick="showLibrary()" class="px-8 py-3.5 glass font-black rounded-2xl hover:bg-white/20 transition border border-white/20">Volver a la biblioteca</button>
+      <button onclick="soloBack()" class="px-8 py-3.5 glass font-black rounded-2xl hover:bg-white/20 transition border border-white/20">Volver a la biblioteca</button>
     </div></div>`, 'stage-bg text-white');
 };
 
