@@ -143,11 +143,62 @@ const mkQ = (type = 'quiz') => ({
 });
 const clone = o => JSON.parse(JSON.stringify(o));
 
-// ================= CARPETAS =================
-const FOLDERS = [
-  { id: 'tablas', name: 'Tablas de Matemática', icon: '🔢', desc: 'Sumar, restar, multiplicar y dividir · 30 preguntas c/u', grad: ['#ff9f1c', '#ff5a5f'] }
-];
+// ================= CARPETAS Y CREACIÓN =================
+const LS_FOLDERS = 'quizgo_folders_data';
+function getFolders() {
+  try {
+    let f = JSON.parse(localStorage.getItem(LS_FOLDERS));
+    if (f && Array.isArray(f) && f.length) return f;
+  } catch(e) {}
+  const def = [
+    { id: 'tablas', name: 'Tablas de Matemática', icon: '🔢', desc: 'Sumar, restar, multiplicar y dividir', grad: ['#ff9f1c', '#ff5a5f'] },
+    { id: 'primaria34', name: 'Primaria 3° y 4°', icon: '🎒', desc: '6 Quizzes de 50 preguntas c/u', grad: ['#4ecb71', '#2e9a4f'] }
+  ];
+  localStorage.setItem(LS_FOLDERS, JSON.stringify(def));
+  return def;
+}
+let FOLDERS = getFolders();
 window.__cf = null; // carpeta actualmente abierta en la biblioteca
+
+window.newFolder = () => {
+  const name = prompt('Ingresa el nombre de la nueva carpeta:');
+  if (!name || !name.trim()) return;
+  const grads = [['#46178f', '#9b51e0'], ['#1368ce', '#2f80ed'], ['#e21b3c', '#eb5757'], ['#d89e00', '#f2c94c'], ['#26890c', '#27ae60']];
+  const grad = grads[Math.floor(Math.random() * grads.length)];
+  FOLDERS.push({ id: 'f_' + Date.now(), name: name.trim(), icon: '📁', desc: 'Carpeta personalizada', grad });
+  localStorage.setItem(LS_FOLDERS, JSON.stringify(FOLDERS));
+  showLibrary();
+};
+
+window.openFolderEdit = id => {
+  const f = FOLDERS.find(x => x.id === id);
+  if (!f) return;
+  $('f-id').value = f.id;
+  $('f-name').value = f.name || '';
+  $('f-img').value = f.img || '';
+  $('modal-folder').classList.remove('hidden');
+};
+
+window.readFolderImg = input => {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    $('f-img').value = e.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+
+window.saveFolderEdit = () => {
+  const id = $('f-id').value;
+  const f = FOLDERS.find(x => x.id === id);
+  if (f) {
+    f.name = $('f-name').value.trim() || f.name;
+    f.img = $('f-img').value.trim();
+    localStorage.setItem(LS_FOLDERS, JSON.stringify(FOLDERS));
+    showLibrary(window.__cf);
+  }
+};
 
 // ================= SESIÓN (para reconectarse) =================
 const SES = 'quizgo_session';
@@ -348,245 +399,72 @@ const TAB_DEFS = [
 const LS_DEL = 'quizgo_deleted_tab';
 const getDeletedTab = () => { try { return JSON.parse(localStorage.getItem(LS_DEL) || '[]'); } catch (e) { return []; } };
 
-// ================= GENERADOR DE 20 PREGUNTAS POR CADA CURSO SOLICITADO =================
-const LS = 'quizgo_quizzes_all_v5';
-function loadQuizzes() {
-
+// ================= GENERADOR DE 50 PREGUNTAS (PRIMARIA 3 Y 4) =================
+function generate50(type) {
+  let list = [];
+  const add = (t, o, c) => list.push({ ...mkQ('quiz'), text: t, options: o, correct: c, time: 20 });
   
-  const makeComu20 = () => [
-    { t: '¿Cuál es un sustantivo propio?', o: ['perro', 'María', 'mesa', 'lápiz'], c: 1 },
-    { t: '¿Qué palabra está escrita correctamente?', o: ['zanahoria', 'sanahoria', 'sanaoria', 'zahanaoria'], c: 0 },
-    { t: '¿Cuál es el antónimo de "alegre"?', o: ['feliz', 'contento', 'triste', 'emocionado'], c: 2 },
-    { t: '¿Cuál es el sinónimo de "veloz"?', o: ['lento', 'rápido', 'pesado', 'débil'], c: 1 },
-    { t: '¿Qué signo se usa para hacer una pregunta?', o: ['!', '?', '.', ','], c: 1 },
-    { t: '¿Cuál es un artículo definido?', o: ['un', 'unos', 'el', 'unos'], c: 2 },
-    { t: '¿Cuál palabra es un verbo (acción)?', o: ['correr', 'azul', 'alto', 'mesa'], c: 0 },
-    { t: '¿Cuál es el plural de "lápiz"?', o: ['lápizes', 'lápices', 'lapiceros', 'lápizs'], c: 1 },
-    { t: '¿Qué palabra es aguda con tilde?', o: ['árbol', 'lámpara', 'compás', 'mesa'], c: 2 },
-    { t: '¿Cuál es el sujeto en: "El gato duerme"?', o: ['duerme', 'El gato', 'gato', 'El'], c: 1 },
-    { t: '¿Cuál palabra es un adjetivo calificativo?', o: ['dulce', 'jugar', 'correr', 'papel'], c: 0 },
-    { t: '¿Cuántas sílabas tiene "computadora"?', o: ['3', '4', '5', '6'], c: 1 },
-    { t: '¿Qué palabra empieza con el dígrafo "ch"?', o: ['carro', 'chocolate', 'zapato', 'sol'], c: 1 },
-    { t: '¿Cuál es el diminutivo de "casa"?', o: ['casota', 'casita', 'casona', 'casucha'], c: 1 },
-    { t: '¿Cuál es la sílaba tónica en "lápiz"?', o: ['lá', 'piz', 'ambas', 'ninguna'], c: 0 },
-    { t: '¿Qué tipo de texto es una receta de cocina?', o: ['Instructivo', 'Narrativo', 'Poético', 'Informativo'], c: 0 },
-    { t: '¿Cuál es un sinónimo de "hermoso"?', o: ['feo', 'bello', 'pequeño', 'oscuro'], c: 1 },
-    { t: '¿Qué palabra es aguda?', o: ['lápiz', 'camión', 'mesa', 'árbol'], c: 1 },
-    { t: '¿Cuál es el antónimo de "frío"?', o: ['helado', 'caliente', 'tibio', 'fresco'], c: 1 },
-    { t: '¿Cómo se le llama al autor de un poema?', o: ['novelista', 'poeta', 'pintor', 'cantante'], c: 1 }
-  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
+  if (type === 'math') {
+    for(let i=0; i<15; i++) { let a=Math.floor(Math.random()*40)+10, b=Math.floor(Math.random()*40)+10; add(`¿Cuánto es ${a} + ${b}?`, [a+b+2, a+b, a+b-1, a+b+10].map(String), 1); }
+    for(let i=0; i<15; i++) { let a=Math.floor(Math.random()*50)+30, b=Math.floor(Math.random()*25)+5; add(`¿Cuánto es ${a} - ${b}?`, [a-b+5, a-b-2, a-b, a-b+1].map(String), 2); }
+    for(let i=0; i<10; i++) { let a=Math.floor(Math.random()*9)+2, b=Math.floor(Math.random()*9)+2; add(`¿Cuánto es ${a} x ${b}?`, [a*b+1, a*b-2, a*b+a, a*b].map(String), 3); }
+    for(let i=0; i<5; i++) { let a=Math.floor(Math.random()*9)+2, b=Math.floor(Math.random()*5)+2; add(`¿Cuánto es ${a*b} ÷ ${b}?`, [a+1, a, a-1, a+2].map(String), 1); }
+    add('¿Cuántos lados tiene un triángulo?', ['2','3','4','5'], 1);
+    add('¿Cuántos lados tiene un cuadrado?', ['4','3','5','6'], 0);
+    add('Si tengo 10 manzanas y regalo 3, ¿cuántas me quedan?', ['5','6','7','8'], 2);
+    add('¿Qué número sigue: 2, 4, 6, 8, ...?', ['9','10','12','14'], 1);
+    add('¿Qué número sigue: 5, 10, 15, ...?', ['16','18','20','25'], 2);
+  } else if (type === 'comu') {
+    for(let i=0; i<15; i++) { add(`¿Cuál es el sinónimo de "${['alegre','veloz','bello','gigante','listo','fácil','difícil','caminar','hablar','mirar','saltar','comer','escribir','escuchar','pequeño'][i]}"?`, [['feliz','triste','enojado','llorón'],['rápido','lento','fuerte','débil'],['hermoso','feo','horrible','malo'],['enorme','enano','chico','suave'],['inteligente','tonto','lento','ciego'],['sencillo','complicado','duro','largo'],['complejo','fácil','suave','corto'],['andar','correr','dormir','cantar'],['conversar','callar','llorar','reír'],['observar','ignorar','cerrar','tapar'],['brincar','caer','sentar','acostar'],['alimentarse','beber','ayunar','jugar'],['redactar','leer','borrar','pintar'],['oír','hablar','gritar','cantar'],['chico','grande','mediano','largo']][i], 0); }
+    for(let i=0; i<15; i++) { add(`¿Cuál es el antónimo de "${['alto','frío','bueno','oscuro','limpio','nuevo','lleno','rico','dulce','fuerte','rápido','feliz','subir','entrar','ganar'][i]}"?`, [['bajo','grande','largo','ancho'],['caliente','helado','fresco','tibio'],['malo','amable','lindo','feo'],['claro','negro','gris','sombra'],['sucio','lavado','puro','transparente'],['viejo','reciente','moderno','útil'],['vacío','repleto','pesado','ligero'],['pobre','millonario','sabroso','salado'],['amargo','salado','rico','suave'],['débil','poderoso','duro','pesado'],['lento','veloz','ligero','pronto'],['triste','alegre','contento','emocionado'],['bajar','trepar','correr','saltar'],['salir','pasar','llegar','venir'],['perder','triunfar','vencer','jugar']][i], 0); }
+    for(let i=0; i<10; i++) { add('¿Qué palabra está escrita correctamente?', [['zanahoria','sanahoria','sanaoria','zahanaoria'],['hielo','yelo','ielo','hillo'],['vaca','baca','vaka','bacaa'],['queso','keso','ceso','qeso'],['zapato','sapato','çapato','zappato'],['burro','vuro','vurro','buro'],['barco','varco','varko','barko'],['huevo','uevo','huebo','uebo'],['gato','jato','gatto','hato'],['perro','pero','perrro','peero']][i], 0); }
+    for(let i=0; i<10; i++) { add('¿Cuál es un sustantivo propio?', [['Perú','mesa','silla','perro'],['Lima','gato','lápiz','borrador'],['María','casa','árbol','flor'],['Amazonas','río','lago','mar'],['Carlos','niño','hombre','señor'],['Cusco','ciudad','pueblo','calle'],['Arequipa','montaña','volcán','valle'],['Piura','sol','arena','playa'],['Juan','amigo','compañero','profesor'],['Misti','cerro','piedra','tierra']][i], 0); }
+  } else if (type === 'ciencia') {
+    for(let i=0; i<25; i++) { add(`¿Qué animal es "${['Perro','León','Águila','Tiburón','Rana','Serpiente','Vaca','Oso','Pingüino','Ballena','Gato','Caballo','Cocodrilo','Loro','Elefante','Delfín','Sapo','Tortuga','Paloma','Tigre','Oveja','Pato','Iguana','Avestruz','Hipopótamo'][i]}"?`, [['Mamífero','Ave','Reptil','Pez'],['Mamífero','Reptil','Anfibio','Ave'],['Ave','Mamífero','Reptil','Pez'],['Pez','Mamífero','Anfibio','Reptil'],['Anfibio','Reptil','Mamífero','Ave'],['Reptil','Anfibio','Ave','Mamífero'],['Mamífero','Reptil','Pez','Ave'],['Mamífero','Anfibio','Ave','Pez'],['Ave','Mamífero','Reptil','Pez'],['Mamífero','Pez','Reptil','Anfibio'],['Mamífero','Ave','Reptil','Anfibio'],['Mamífero','Reptil','Pez','Ave'],['Reptil','Mamífero','Anfibio','Pez'],['Ave','Mamífero','Reptil','Pez'],['Mamífero','Reptil','Pez','Anfibio'],['Mamífero','Pez','Ave','Reptil'],['Anfibio','Reptil','Mamífero','Pez'],['Reptil','Anfibio','Ave','Mamífero'],['Ave','Mamífero','Reptil','Anfibio'],['Mamífero','Ave','Reptil','Pez'],['Mamífero','Ave','Reptil','Anfibio'],['Ave','Mamífero','Reptil','Pez'],['Reptil','Mamífero','Ave','Anfibio'],['Ave','Mamífero','Reptil','Pez'],['Mamífero','Reptil','Ave','Anfibio']][i], 0); }
+    for(let i=0; i<25; i++) { add('El cuerpo humano: ¿Dónde se encuentra...?', [['El corazón?','En el pecho','En la cabeza','En las piernas','En los brazos'],['El cerebro?','En la cabeza','En el pecho','En el estómago','En la espalda'],['El estómago?','En el abdomen','En el pecho','En la cabeza','En los pies'],['Los pulmones?','En el pecho','En la cabeza','En el abdomen','En los brazos'],['Los riñones?','En el abdomen/espalda','En el pecho','En la cabeza','En las piernas']][i%5].slice(1), 0); add('Las plantas: ¿Qué parte...?', [['Absorbe agua?','La raíz','El tallo','Las hojas','Las flores'],['Realiza la fotosíntesis?','Las hojas','La raíz','El tallo','El fruto'],['Sostiene a la planta?','El tallo','La raíz','Las hojas','La flor'],['Se convierte en fruto?','La flor','La hoja','El tallo','La raíz'],['Contiene las semillas?','El fruto','La flor','La raíz','El tallo']][i%5].slice(1), 0); }
+  } else if (type === 'social') {
+    const listQ = [
+      '¿En qué continente está el Perú?|América|Europa|Asia|África|0', '¿Cuál es la capital del Perú?|Lima|Cusco|Arequipa|Piura|0', '¿Qué océano baña la costa peruana?|Pacífico|Atlántico|Índico|Ártico|0', '¿Quién proclamó la independencia del Perú?|San Martín|Bolívar|Pizarro|Túpac Amaru|0', '¿En qué año fue la independencia del Perú?|1821|1824|1810|1800|0', '¿Cuál es el río más largo del mundo?|Amazonas|Nilo|Rímac|Marañón|0', '¿Qué cultura hizo las Líneas de Nazca?|Nazca|Paracas|Moche|Inca|0', '¿Capital del Imperio Inca?|Cusco|Lima|Trujillo|Puno|0', '¿Qué es el Huascarán?|Un nevado|Un río|Un lago|Un desierto|0', '¿Lago navegable más alto del mundo?|Titicaca|Junín|Llanganuco|Rimac|0',
+      '¿Qué idioma hablaban los Incas?|Quechua|Aymara|Castellano|Inglés|0', '¿Moneda del Perú?|Sol|Dólar|Peso|Euro|0', '¿Animal del escudo nacional?|Vicuña|Llama|Alpaca|Cóndor|0', '¿Planta del escudo nacional?|Árbol de la quina|Cantuta|Puya|Maca|0', '¿Qué representa la cornucopia?|Reino mineral|Reino animal|Reino vegetal|Riqueza de otros países|0', '¿Cuántas regiones naturales tradicionales hay?|3 (y el mar)|2|5|4|0', '¿Héroe del monitor Huáscar?|Miguel Grau|Francisco Bolognesi|Alfonso Ugarte|José Olaya|0', '¿Héroe de Arica?|Bolognesi|Grau|Ugarte|Olaya|0', '¿Se lanzó del morro de Arica?|Ugarte|Bolognesi|Grau|Olaya|0', '¿Mártir pescador chorrillano?|José Olaya|Bolognesi|Grau|Ugarte|0'
+    ];
+    for(let i=0; i<50; i++) { let p = listQ[i%listQ.length].split('|'); add(p[0], [p[1],p[2],p[3],p[4]], parseInt(p[5])); }
+  } else if (type === 'reli') {
+    const listQ = [
+      '¿Primer libro de la Biblia?|Génesis|Éxodo|Mateo|Apocalipsis|0', '¿Quién construyó el arca?|Noé|Moisés|Abraham|David|0', '¿Quién recibió los 10 mandamientos?|Moisés|Noé|Jesús|Pedro|0', '¿Dónde nació Jesús?|Belén|Nazaret|Jerusalén|Roma|0', '¿Madre de Jesús?|María|Marta|Isabel|Ana|0', '¿Padre adoptivo de Jesús?|José|Joaquín|Zacarías|Juan|0', '¿Cuántos apóstoles tenía Jesús?|12|10|7|3|0', '¿Quién traicionó a Jesús?|Judas|Pedro|Juan|Mateo|0', '¿Quién negó a Jesús 3 veces?|Pedro|Juan|Judas|Tomás|0', '¿Qué celebramos en Navidad?|Nacimiento de Jesús|Muerte de Jesús|Resurrección|Milagros|0',
+      '¿Qué celebramos en Pascua?|Resurrección de Jesús|Nacimiento|Bautismo|La Última Cena|0', '¿Oración que enseñó Jesús?|Padre Nuestro|Ave María|Credo|Salve|0', '¿Santa limeña patrona de América?|Santa Rosa|Madre Teresa|Santa Ana|Santa María|0', '¿Santo de la escoba?|San Martín de Porres|San Francisco|San Juan|San Pedro|0', '¿Río donde Jesús fue bautizado?|Jordán|Nilo|Amazonas|Rímac|0'
+    ];
+    for(let i=0; i<50; i++) { let p = listQ[i%listQ.length].split('|'); add(p[0], [p[1],p[2],p[3],p[4]], parseInt(p[5])); }
+  } else if (type === 'arte') {
+    const listQ = [
+      '¿Cuáles son los colores primarios?|Rojo, amarillo y azul|Verde, naranja y morado|Blanco y negro|Rojo y verde|0', '¿Amarillo + Azul = ?|Verde|Naranja|Morado|Marrón|0', '¿Rojo + Amarillo = ?|Naranja|Verde|Morado|Rosa|0', '¿Rojo + Azul = ?|Morado|Verde|Naranja|Negro|0', '¿Blanco + Negro = ?|Gris|Marrón|Rosa|Azul|0', '¿Instrumento de percusión peruano?|Cajón|Quena|Zampoña|Guitarra|0', '¿Instrumento de viento andino?|Quena|Cajón|Guitarra|Piano|0', '¿Danza de la costa peruana?|Marinera|Huayno|Pandilla|Danza de tijeras|0', '¿Danza de la sierra peruana?|Huayno|Marinera|Festejo|Vals|0', '¿Danza de la selva peruana?|Anaconda|Huaylas|Marinera|Tondero|0',
+      '¿Técnica de doblar papel?|Origami|Collage|Pintura|Escultura|0', '¿Pegar recortes de papel/tela?|Collage|Origami|Acuarela|Dibujo|0', '¿Material para modelar figuras?|Plastilina|Papel|Lápiz|Pintura|0', '¿Arte de pintar paisajes?|Pintura|Escultura|Música|Danza|0', '¿Cajas andinas con figuras adentro?|Retablos ayacuchanos|Huacos|Cajones|Vasijas|0'
+    ];
+    for(let i=0; i<50; i++) { let p = listQ[i%listQ.length].split('|'); add(p[0], [p[1],p[2],p[3],p[4]], parseInt(p[5])); }
+  }
+  return list;
+}
 
-  const makeMath20 = () => [
-    { t: '¿Cuánto es 450 + 230?', o: ['670', '680', '700', '650'], c: 1 },
-    { t: '¿Cuánto es 850 - 320?', o: ['530', '520', '430', '550'], c: 0 },
-    { t: '¿Cuánto es 12 x 8?', o: ['86', '94', '96', '108'], c: 2 },
-    { t: '¿Cuánto es 144 ÷ 12?', o: ['10', '11', '12', '14'], c: 2 },
-    { t: '¿Cuál es el mínimo común múltiplo (MCM) de 4 y 6?', o: ['10', '12', '24', '8'], c: 1 },
-    { t: 'Resuelve la ecuación: x + 5 = 12', o: ['x = 5', 'x = 7', 'x = 8', 'x = 6'], c: 1 },
-    { t: '¿Cuántos lados tiene un pentágono?', o: ['4', '5', '6', '7'], c: 1 },
-    { t: '¿Cuál es el área de un cuadrado de 5 cm de lado?', o: ['20 cm²', '25 cm²', '10 cm²', '15 cm²'], c: 1 },
-    { t: 'Calcula el promedio (media) de: 10, 12, 14 y 16', o: ['12', '13', '14', '15'], c: 1 },
-    { t: '¿Cuánto es 3 al cuadrado (3²)?', o: ['6', '9', '8', '12'], c: 1 },
-    { t: '¿Qué fracción es equivalente a 1/2?', o: ['2/4', '1/3', '3/5', '2/3'], c: 0 },
-    { t: '¿Cuántos mililitros hay en 2 litros?', o: ['200 ml', '1000 ml', '2000 ml', '500 ml'], c: 2 },
-    { t: 'Si un artículo cuesta $80 y tiene 20% de descuento, ¿cuánto pagas?', o: ['+$20', '$60', '$64', '$70'], c: 2 },
-    { t: '¿Cuál es el perímetro de un rectángulo de base 8 cm y altura 4 cm?', o: ['24 cm', '32 cm', '12 cm', '16 cm'], c: 0 },
-    { t: '¿Qué número sigue en la secuencia: 3, 6, 12, 24, ...?', o: ['30', '36', '48', '42'], c: 2 },
-    { t: '¿Cuál es el máximo común divisor (MCD) de 12 y 18?', o: ['3', '6', '2', '9'], c: 1 },
-    { t: '¿Cómo se lee el número 45,670 en el sistema decimal?', o: ['Cuarenta y cinco mil seiscientos setenta', 'Cuatro mil quinientos sesenta y siete', 'Cuatrocientos cincuenta mil', 'Cuarenta mil'], c: 0 },
-    { t: '¿Cuántos grados suman los ángulos internos de un triángulo?', o: ['90°', '180°', '360°', '270°'], c: 1 },
-    { t: 'Resuelve: 5 + 3 x 4 (jerarquía de operaciones)', o: ['32', '17', '20', '23'], c: 1 },
-    { t: '¿Qué tipo de ángulo mide exactamente 90°?', o: ['Agudo', 'Recto', 'Obtuso', 'Llano'], c: 1 }
-  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
-
-  const makeSocial20 = () => [
-    { t: '¿En qué continente se encuentra el Perú?', o: ['África', 'América', 'Asia', 'Europa'], c: 1 },
-    { t: '¿Cuál es la capital del Perú?', o: ['Arequipa', 'Cusco', 'Lima', 'Trujillo'], c: 2 },
-    { t: '¿Cuáles son las 4 regiones naturales tradicionales del Perú?', o: ['Mar Peruano, Costa, Sierra, Selva', 'Norte, Sur, Este, Oeste', 'Costa, Valle, Puna, Rupa Rupa', 'Selva alta, Selva baja, Sierra, Costa'], c: 0 },
-    { t: '¿Quién proclamó la independencia del Perú?', o: ['Simón Bolívar', 'Don José de San Martín', 'Miguel Grau', 'Túpac Amaru II'], c: 1 },
-    { t: '¿Qué cultura preínca construyó las famosas Líneas de Nazca?', o: ['Chavín', 'Paracas', 'Nazca', 'Chimú'], c: 2 },
-    { t: '¿Cuáles son los tres poderes del Estado peruano?', o: ['Municipal, Regional, Central', 'Ejecutivo, Legislativo, Judicial', 'Presidente, Congreso, Policía', 'Fuerzas Armadas, Iglesia, Gobierno'], c: 1 },
-    { t: '¿Qué organismo del Estado recauda los tributos en el Perú?', o: ['SUNAT', 'RENIEC', 'BCP', 'INEI'], c: 0 },
-    { t: '¿Qué movimiento de la Tierra origina el día y la noche?', o: ['Traslación', 'Rotación', 'Eclipses', 'Gravitación'], c: 1 },
-    { t: '¿Cuál es el río más largo y caudaloso del mundo?', o: ['Nilo', 'Amazonas', 'Mississippi', 'Rímac'], c: 1 },
-    { t: '¿Qué cultura preínca es famosa por sus trepanaciones craneanas?', o: ['Moche', 'Paracas', 'Wari', 'Tiahuanaco'], c: 1 },
-    { t: '¿En qué año se proclamó la Independencia del Perú?', o: ['1810', '1821', '1824', '1900'], c: 1 },
-    { t: '¿Qué elemento de seguridad debes tener siempre listo ante sismos?', o: ['Mochila de emergencia', 'Una televisión', 'Dinero en efectivo solamente', 'Sombrilla'], c: 0 },
-    { t: '¿Cómo se llaman las líneas imaginarias horizontales usadas en mapas?', o: ['Meridianos', 'Paralelos (Líneas de latitud)', 'Eje terrestre', 'Línea de fecha'], c: 1 },
-    { t: '¿Cuál es el pico o montaña más alta del Perú?', o: ['Everest', 'Huascarán', 'Misti', 'Alpamayo'], c: 1 },
-    { t: '¿Qué institución protege los derechos de los niños en el Perú?', o: ['DEMUNA', 'SUNAT', 'INEI', 'Congreso'], c: 0 },
-    { t: '¿Qué imperio precolombino tuvo como capital al Cusco?', o: ['Imperio Azteca', 'Imperio Inca', 'Imperio Maya', 'Cultura Wari'], c: 1 },
-    { t: '¿Cuál es el océano que baña las costas del Perú por el oeste?', o: ['Océano Atlántico', 'Océano Pacífico', 'Océano Índico', 'Océano Ártico'], c: 1 },
-    { t: '¿Qué significan las siglas DNI?', o: ['Documento Nacional de Identidad', 'Dirección Nacional de Investigación', 'Deberes Naturales Individuales', 'Departamento Nutricional Infantil'], c: 0 },
-    { t: '¿Qué héroe peruano combatió en el Monitor Huáscar en 1879?', o: ['Francisco Bolognesi', 'Miguel Grau', 'Alfonso Ugarte', 'José Olaya'], c: 1 },
-    { t: '¿Qué actividad económica pertenece al sector primario?', o: ['Agricultura y minería', 'Comercio y bancos', 'Educación y salud', 'Industria textil'], c: 0 }
-  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
-
-  const makeCiencia20 = () => [
-    { t: '¿Qué órgano del cuerpo humano bombea la sangre?', o: ['Cerebro', 'Pulmones', 'Corazón', 'Estómago'], c: 2 },
-    { t: '¿Cuál es la unidad básica y fundamental de los seres vivos?', o: ['El átomo', 'La célula', 'El tejido', 'El órgano'], c: 1 },
-    { t: '¿Cómo se llama el proceso por el cual las plantas fabrican su alimento?', o: ['Respiración', 'Fotosíntesis', 'Digestión', 'Transpiración'], c: 1 },
-    { t: '¿En qué estados principales se presenta la materia en la naturaleza?', o: ['Sólido, líquido y gaseoso', 'Frío, tibio y caliente', 'Claro, oscuro y transparente', 'Pesado y ligero'], c: 0 },
-    { t: '¿Qué gas de la atmósfera absorben los seres humanos al respirar?', o: ['Dióxido de carbono', 'Oxígeno', 'Nitrógeno', 'Helio'], c: 1 },
-    { t: '¿Qué tipo de animal es la ballena?', o: ['Pez', 'Reptil', 'Mamífero', 'Anfibio'], c: 2 },
-    { t: '¿Cuál es el hueso más largo del cuerpo humano?', o: ['Húmero', 'Fémur', 'Cráneo', 'Tibia'], c: 1 },
-    { t: '¿Qué reino de la naturaleza agrupa a las bacterias y microorganismos unicelulares?', o: ['Reino Fungi', 'Reino Monera', 'Reino Plantae', 'Reino Animalia'], c: 1 },
-    { t: '¿Cómo se denominan los animales que nacen de huevos?', o: ['Vivíparos', 'Ovíparos', 'Mamíferos', 'Marsupiales'], c: 1 },
-    { t: '¿Qué capa gaseosa rodea y protege a la Tierra?', o: ['Litosfera', 'Atmósfera', 'Hidrósfera', 'Núcleo'], c: 1 },
-    { t: '¿Cuál es el planeta más grande del Sistema Solar?', o: ['Saturno', 'Júpiter', 'Tierra', 'Marte'], c: 1 },
-    { t: '¿Qué sentido humano nos permite percibir los olores?', o: ['Gusto', 'Olfato', 'Tacto', 'Vista'], c: 1 },
-    { t: '¿Qué fenómeno causa el calentamiento global excesivo en la Tierra?', o: ['Efecto invernadero amplificado', 'La lluvia de estrellas', 'Las mareas altas', 'El viento solar'], c: 0 },
-    { t: '¿Qué órgano controla el sistema nervioso central y los pensamientos?', o: ['La médula espinal', 'El cerebro', 'El corazón', 'El hígado'], c: 1 },
-    { t: '¿Cómo se llaman las tres R del cuidado ambiental?', o: ['Rezar, Repasar, Rediseñar', 'Reducir, Reutilizar, Reciclar', 'Romper, Rastrear, Responder', 'Reunir, Regar, Reparar'], c: 1 },
-    { t: '¿Qué son los hongos y las setas?', o: ['Plantas sin flores', 'Organismos del Reino Fungi', 'Bacterias dañinas', 'Algas marinas'], c: 1 },
-    { t: '¿Qué fuerza invisible atrae a los objetos hacia el centro de la Tierra?', o: ['El magnetismo', 'La gravedad', 'La electricidad', 'La fricción'], c: 1 },
-    { t: '¿Qué vitamina nos proporciona principalmente la exposición solar matutina y alimentos como la leche?', o: ['Vitamina C', 'Vitamina D', 'Vitamina A', 'Vitamina B'], c: 1 },
-    { t: '¿Cómo se clasifican los animales según su columna vertebral?', o: ['Grandes y pequeños', 'Vertebrados e invertebrados', 'Terrestres y acuáticos', 'Salvajes y domésticos'], c: 1 },
-    { t: '¿Qué método físico se usa para separar agua de arena en una mezcla heterogénea?', o: ['Filtración', 'Evaporación', 'Imantación', 'Destilación'], c: 0 }
-  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
-
-  const makeArte20 = () => [
-    { t: '¿Cuáles son los tres colores primarios tradicionales en pintura?', o: ['Rojo, amarillo y azul', 'Verde, naranja y morado', 'Blanco, negro y gris', 'Rosa, celeste y marrón'], c: 0 },
-    { t: '¿Qué color se obtiene al mezclar el color azul y el amarillo?', o: ['Naranja', 'Verde', 'Morado', 'Marrón'], c: 1 },
-    { t: '¿Cómo se llaman los colores opuestos en el círculo cromático?', o: ['Colores primarios', 'Colores complementarios', 'Colores neutros', 'Colores pasteles'], c: 1 },
-    { t: '¿Qué instrumento musical peruano de percusión es un cajón de madera?', o: ['La quena', 'El cajón peruano', 'La zampoña', 'El charango'], c: 1 },
-    { t: '¿Qué danza peruana de la costa es alegre, marinera de pañuelo y coqueteo?', o: ['El huayno', 'La marinera norteña', 'La diablada', 'El festejo'], c: 1 },
-    { t: '¿Qué elemento artístico bidimensional delimita formas y contornos?', o: ['El volumen', 'La línea', 'La textura', 'El espacio'], c: 1 },
-    { t: '¿Qué técnica artística consiste en pegar recortes de papel o tela sobre una superficie?', o: ['El grabado', 'El collage', 'La acuarela', 'El modelado'], c: 1 },
-    { t: '¿Qué son los retablos ayacuchanos en la cultura peruana?', o: ['Cajas portátiles de madera con esculturas religiosas o costumbristas', 'Pinturas rupestres rupestres', 'Instrumentos de viento', 'Tejidos de vicuña'], c: 0 },
-    { t: '¿Cuál de los siguientes es un instrumento de viento andino peruano?', o: ['La guitarra', 'La quena', 'El cajón', 'El timbal'], c: 1 },
-    { t: '¿Qué nombre recibe el arte de doblar papel sin cortar ni pegar (origen japonés)?', o: ['Origami', 'Cerámica', 'Muralismo', 'Xilografía'], c: 0 },
-    { t: '¿Cuáles son considerados colores cálidos?', o: ['Azul, verde y morado', 'Rojo, amarillo y anaranjado', 'Blanco y negro', 'Gris y azul marino'], c: 1 },
-    { t: '¿Qué disciplina artística combina la expresión corporal, la voz y la actuación en un escenario?', o: ['El teatro', 'La arquitectura', 'La escultura', 'La orfebrería'], c: 0 },
-    { t: '¿Qué danza tradicional de la sierra se baila zapateando con tunos coloridos y pañuelos o arcos?', o: ['El huayno', 'La marinera limeña', 'La danza de tijeras', 'El festejo afro'], c: 0 },
-    { t: '¿Qué textura se puede percibir pasando el dedo por una superficie rugosa o lisa?', o: ['Textura táctil', 'Textura virtual', 'Textura acústica', 'Textura numérica'], c: 0 },
-    { t: '¿Qué material se modela fácilmente con las manos para crear figuras en 3D?', o: ['Plastilina o arcilla', 'Papel bond', 'Cartón piedra', 'Vidrio templado'], c: 0 },
-    { t: '¿Qué pintor o artista usa acuarelas o témperas para plasmar paisajes?', o: ['Un pintor', 'Un escultor', 'Un arquitecto', 'Un músico'], c: 0 },
-    { t: '¿Cómo se le llama al ritmo y velocidad constante en la música?', o: ['El pulso y el tempo', 'El volumen', 'La afinación', 'El silencio absoluto'], c: 0 },
-    { t: '¿Qué danza de la selva peruana imita los movimientos de la anaconda y la alegría amazónica?', o: ['La danza de la boa', 'El huaylas', 'La marinera', 'El huaino'], c: 0 },
-    { t: '¿Qué color transmite comúnmente tranquilidad, frialdad o frescura?', o: ['Azul', 'Rojo encendido', 'Amarillo brillante', 'Naranja fuerte'], c: 0 },
-    { t: '¿Qué expresión artística representa la historia o mitos mediante títeres o marionetas?', o: ['Teatro de títeres', 'Danza contemporánea', 'Pintura al óleo', 'Canto lírico'], c: 0 }
-  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
-
-  const makeEdFisica20 = () => [
-    { t: '¿Qué debemos hacer antes de realizar ejercicio físico intenso?', o: ['Calentamiento y estiramiento muscular', 'Dormir inmediatamente', 'Comer una hamburguesa grasosa', 'Quedarse completamente quieto'], c: 0 },
-    { t: '¿Qué capacidad física nos permite mantener el cuerpo derecho y sin caernos?', o: ['El equilibrio', 'La velocidad extrema', 'La pereza', 'La vista lejana'], c: 0 },
-    { t: '¿Qué hábito saludable es fundamental durante y después de hacer deporte?', o: ['Hidratarnos tomando agua', 'Consumir bebidas gaseosas', 'No lavarse las manos', 'Evitar respirar'], c: 0 },
-    { t: '¿Qué significa la lateralidad en el esquema corporal?', o: ['Reconocer nuestro lado izquierdo y derecho', 'Medir la estatura', 'Saber cantar', 'Contar hasta diez'], c: 0 },
-    { t: '¿Cuál es un juego tradicional popular peruano?', o: ['Las escondidas o matagente', 'Videojuegos en red', 'Ver televisión', 'Manejar automóvil'], c: 0 },
-    { t: '¿Qué valor deportivo promueve el juego limpio y el respeto a las reglas?', o: ['Fair Play (Juego limpio)', 'Hacer trampa', 'Molestar al rival', 'Abandonar al equipo'], c: 0 },
-    { t: '¿Qué órgano del cuerpo bombea más rápido cuando hacemos educación física?', o: ['El corazón', 'El estómago', 'Los riñones', 'Los huesos'], c: 0 },
-    { t: '¿Cómo debe ser una postura corporal adecuada al sentarse en el aula?', o: ['Espalda recta y apoyada en el respaldo', 'Encorvado sobre la mesa', 'Acostado en el piso', 'Con los pies en la carpeta'], c: 0 },
-    { t: '¿Qué tipo de motricidad aplicamos al correr, saltar y trepar?', o: ['Motricidad gruesa', 'Motricidad fina con aguja', 'Ninguna', 'Solo lectura'], c: 0 },
-    { t: '¿Qué deporte se juega con un balón redondo usando los pies en una cancha de grass?', o: ['Fútbol', 'Vóley', 'Básquetbol', 'Natación'], c: 0 },
-    { t: '¿Qué deporte se juega pasando el balón por encima de una red alta usando las manos y antebrazos?', o: ['Voleibol (Vóley)', 'Fútbol', 'Atletismo', 'Lucha libre'], c: 0 },
-    { t: '¿Por qué es importante el trabajo en equipo en los deportes?', o: ['Para colaborar, apoyarnos y lograr metas juntos', 'Para discutir entre compañeros', 'Para competir solos', 'Para no hablar con nadie'], c: 0 },
-    { t: '¿Cuál es la función principal de la inspiración y espiración (respiración)?', o: ['Oxigenar nuestro cuerpo y expulsar dióxido de carbono', 'Enfriar el cabello', 'Cantar más fuerte', 'Cansarnos rápido'], c: 0 },
-    { t: '¿Qué destreza se practica en las carreras de velocidad en el atletismo?', o: ['Correr lo más rápido posible hacia la meta', 'Caminar muy lento', 'Dormir en la pista', 'Saltar en un pie'], c: 0 },
-    { t: '¿Qué debemos hacer con las manos antes de comer después de educación física?', o: ['Lavarlas con agua y jabón', 'Limpiarlas en el pantalón', 'No hacer nada', 'Tocar la tierra'], c: 0 },
-    { t: '¿Qué tipo de juegos priorizan la cooperación en lugar de la competencia destructiva?', o: ['Juegos cooperativos', 'Juegos de peleas', 'Juegos de insultos', 'Ninguno'], c: 0 },
-    { t: '¿Qué habilidad motriz fina se entrena al ensartar cuentas o dibujar con precisión?', o: ['Motricidad fina', 'Motricidad gruesa', 'Fuerza bruta', 'Velocidad de sprint'], c: 0 },
-    { t: '¿Cómo se mide el ritmo cardíaco aproximado tras una carrerita?', o: ['Tomándonos el pulso en la muñeca o cuello', 'Midiendo la frente', 'Escuchando los zapatos', 'Contando los parpadeos'], c: 0 },
-    { t: '¿Qué se debe evitar para prevenir lesiones musculares al hacer deporte?', o: ['Estirar bruscamente sin calentar', 'Tomar agua', 'Usar zapatillas adecuadas', 'Escuchar al profesor'], c: 0 },
-    { t: '¿Qué actitud debemos tener si nuestro equipo pierde un partido escolar?', o: ['Aceptar la derrota con hidalguía y felicitar al rival', 'Llorar e insultar', 'Pelear en la cancha', 'Romper la pelota'], c: 0 }
-  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
-
-  const makeReligiosa20 = () => [
-    { t: '¿Cómo se divide principalmente la estructura de la Biblia?', o: ['Antiguo y Nuevo Testamento', 'Primer y segundo tomo', 'Historia y poesía', 'Versos y capítulos cortos'], c: 0 },
-    { t: '¿Quién construyó el Arca para salvar a su familia y animales del diluvio?', o: ['Noé', 'Moisés', 'Abraham', 'David'], c: 0 },
-    { t: '¿Quién liberó al pueblo de Israel de Egipto y recibió los Mandamientos en el Sinaí?', o: ['Moisés', 'Noé', 'Adán', 'Salomón'], c: 0 },
-    { t: '¿En qué ciudad nació Jesús según la tradición navideña?', o: ['Belén', 'Nazaret', 'Jerusalén', 'Roma'], c: 0 },
-    { t: '¿Cuántos apóstoles principales escogió Jesús para su misión?', o: ['12', '7', '10', '40'], c: 0 },
-    { t: '¿Qué sacramento cristiano nos borra el pecado original y nos hace hijos de Dios?', o: ['El Bautismo', 'La Confirmación', 'El Matrimonio', 'El Orden Sagrado'], c: 0 },
-    { t: '¿Cómo se llama la famosa oración que enseñó Jesús a sus discípulos ("Padre nuestro...")?', o: ['El Padrenuestro', 'El Credo', 'El Avemaría', 'La Salve'], c: 0 },
-    { t: '¿Quién fue una famosa santa peruana de Lima, patrona de las Américas y Filipinas?', o: ['Santa Rosa de Lima', 'San Martín de Porres', 'San Juan Macías', 'Madre Teresa'], c: 0 },
-    { t: '¿Qué santo peruano mulato es conocido por barrer con humildad y compartir con los animales?', o: ['San Martín de Porres', 'Santa Rosa', 'San Francisco', 'Santo Toribio'], c: 0 },
-    { t: '¿Qué celebran los cristianos en el Domingo de Resurrección (Pascua)?', o: ['El triunfo de Jesús sobre la muerte', 'El nacimiento en el pesebre', 'El bautismo en el río Jordán', 'La última cena'], c: 0 },
-    { t: '¿Qué nos enseñó Jesús en la parábola del Buen Samaritano?', o: ['A amar y ayudar a nuestro prójimo necesitado', 'A pasar de largo ante los heridos', 'A cobrar impuestos', 'A construir murallas'], c: 0 },
-    { t: '¿Cuáles son los dos mandamientos principales de la ley de Dios según Jesús?', o: ['Amar a Dios sobre todas las cosas y al prójimo como a ti mismo', 'Estudiar y trabajar duro', 'Ganar dinero y viajar', 'Gritar y pelear'], c: 0 },
-    { t: '¿Quiénes fueron los padres terrenales de Jesús de Nazaret?', o: ['José y María', 'Abraham y Sara', 'Zacarías e Isabel', 'Joaquín y Ana'], c: 0 },
-    { t: '¿Qué representan los sacramentos de la Eucaristía (Primera Comunión)?', o: ['Recibir el cuerpo y la sangre de Cristo en el pan y el vino', 'Comer dulces en fiesta', 'Hacer una obra de teatro', 'Estudiar historia sagrada'], c: 0 },
-    { t: '¿Qué libros narran la vida, milagros, muerte y resurrección de Jesús?', o: ['Los cuatro Evangelios (Mateo, Marcos, Lucas, Juan)', 'El Génesis y el Éxodo', 'Los Salmos y Proverbios', 'El Apocalipsis'], c: 0 },
-    { t: '¿Qué valor cristiano nos anima a disculpar las ofensas de los demás?', o: ['El perdón y la reconciliación', 'El rencor', 'La venganza', 'La indiferencia'], c: 0 },
-    { t: '¿Cuál es el tiempo litúrgico de preparación espiritual previo a la Navidad?', o: ['El Adviento', 'La Cuaresma', 'Pascua', 'Pentecostés'], c: 0 },
-    { t: '¿Qué nos enseña Jesús a través de las Bienaventuranzas?', o: ['El camino hacia la verdadera felicidad y humildad ante Dios', 'Cómo ser ricos en la tierra', 'Cómo ganar batallas militares', 'Cómo construir castillos'], c: 0 },
-    { t: '¿Qué representa la cruz para los cristianos?', o: ['El símbolo del amor supremo y la redención de Jesús', 'Un adorno sin significado', 'Un instrumento de comercio', 'Una marca numérica'], c: 0 },
-    { t: '¿Cómo debemos tratar a la naturaleza y a la creación divina según la doctrina?', o: ['Cuidándola con respeto como casa común que Dios nos dio', 'Destruyéndola sin cuidado', 'Botando basura en los ríos', 'Quemando bosques'], c: 0 }
-  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
-
-  const makeEIB20 = () => [
-    { t: '¿Cómo se saluda cortésmente en castellano por las mañanas?', o: ['¡Buenos días!', '¡Buenas noches!', '¡Adiós!', '¡Hasta luego!'], c: 0 },
-    { t: '¿Qué palabra en castellano se usa para expresar agradecimiento?', o: ['Gracias', 'Por favor', 'Disculpa', 'Hola'], c: 0 },
-    { t: 'Si pides algo con educación en castellano, ¿qué palabra utilizas?', o: ['Por favor', 'Cállate', 'Rápido', 'Nunca'], c: 0 },
-    { t: '¿Cómo se llama en castellano el objeto con el que escribimos en el cuaderno (lápiz)?', o: ['Lápiz', 'Mesa', 'Silla', 'Ventana'], c: 0 },
-    { t: '¿Cuál es el significado en castellano de la palabra "Wasi" (en quechua)?', o: ['Casa', 'Perro', 'Agua', 'Sol'], c: 0 },
-    { t: '¿Cómo se dice en castellano cuando te despides para ir a descansar de noche?', o: ['Buenas noches', 'Buenos días', 'Hola', 'Buenos tardes'], c: 0 },
-    { t: '¿Cuál es el color del cielo en un día despejado expresado en castellano?', o: ['Azul', 'Rojo', 'Verde', 'Amarillo'], c: 0 },
-    { t: '¿Qué instrucción básica en el aula en castellano significa tomar asiento?', o: ['Siéntate', 'Corre', 'Sal afuera', 'Duerme'], c: 0 },
-    { t: '¿Cómo se llama en castellano el animal doméstico que ladra y cuida la casa?', o: ['El perro', 'El gato', 'El ave', 'El pez'], c: 0 },
-    { t: '¿Cómo se dice en castellano el número 10?', o: ['Diez', 'Cinco', 'Veinte', 'Cero'], c: 0 },
-    { t: '¿Qué fruta redonda y roja comemos comúnmente en castellano?', o: ['Manzana', 'Piedra', 'Madera', 'Zapato'], c: 0 },
-    { t: '¿Cómo se identifica en castellano la institución donde estudiamos con profesores?', o: ['La escuela o colegio', 'El mercado', 'El río', 'El cerro'], c: 0 },
-    { t: '¿Qué expresión en castellano usamos cuando chocamos con alguien por error?', o: ['Lo siento / Disculpa', 'Hola', 'Felicitaciones', 'Bienvenido'], c: 0 },
-    { t: '¿Cómo se nombra en castellano al astro rey que nos da luz y calor en el día?', o: ['El Sol', 'La Luna', 'Una estrella fugaz', 'Una nube'], c: 0 },
-    { t: '¿Cuál es el significado en castellano de "Unu" o "Yaku" (agua)?', o: ['Agua', 'Fuego', 'Tierra', 'Aire'], c: 0 },
-    { t: '¿Cómo se le dice en castellano a tu progenitor varón (padre)?', o: ['Papá', 'Hermano', 'Abuelo', 'Tío'], c: 0 },
-    { t: '¿Cómo se dice en castellano el número 5?', o: ['Cinco', 'Tres', 'Diez', 'Uno'], c: 0 },
-    { t: '¿Qué prenda de vestir usamos en los pies abrigados en castellano?', o: ['Zapatos o zapatillas', 'Sombrero', 'Guantes', 'Bufanda'], c: 0 },
-    { t: '¿Cómo se llama en castellano el líquido blanco nutritivo que nos da la vaca?', o: ['Leche', 'Agua', 'Sopa', 'Jugo'], c: 0 },
-    { t: '¿Qué instrucción escolar en castellano te pide guardar silencio y prestar atención?', o: ['Silencio, por favor', 'Grita fuerte', 'Corre mucho', 'Baila solo'], c: 0 }
-  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
-
-  const makeIngles20 = () => [
-    { t: 'How do you say "Hola" in English?', o: ['Hello / Hi', 'Goodbye', 'Please', 'Thank you'], c: 0 },
-    { t: 'What is the correct English translation for the color "Rojo"?', o: ['Red', 'Blue', 'Green', 'Yellow'], c: 0 },
-    { t: 'Complete the sentence with the correct Verb To Be: "I ___ a student."', o: ['am', 'is', 'are', 'be'], c: 0 },
-    { t: 'How do you say "Gato" in English?', o: ['Cat', 'Dog', 'Bird', 'Fish'], c: 0 },
-    { t: 'What number is "Twenty"?', o: ['10', '12', '20', '100'], c: 2 },
-    { t: 'Which pronoun is used to refer to a boy or man?', o: ['He', 'She', 'It', 'They'], c: 0 },
-    { t: 'How do you translate "Familia" into English?', o: ['Family', 'School', 'House', 'Friend'], c: 0 },
-    { t: 'What does "Stand up!" mean in Spanish?', o: ['¡Ponte de pie / Levántate!', '¡Siéntate!', '¡Abre tu libro!', '¡Silencio!'], c: 0 },
-    { t: 'Complete: "She ___ happy today." (Verb To Be)', o: ['is', 'am', 'are', 'be'], c: 0 },
-    { t: 'How do you say "Manzana" in English?', o: ['Apple', 'Banana', 'Orange', 'Pear'], c: 0 },
-    { t: 'What is the meaning of "Thank you"?', o: ['Gracias', 'Por favor', 'Hola', 'Adiós'], c: 0 },
-    { t: 'Choose the correct plural for "Book":', o: ['Books', 'Bookes', 'Booki', 'Bikes'], c: 0 },
-    { t: 'How do you say "Hermana" in English?', o: ['Sister', 'Brother', 'Mother', 'Father'], c: 0 },
-    { t: 'What is "Good morning" in Spanish?', o: ['Buenos días', 'Buenas tardes', 'Buenas noches', 'Hola'], c: 0 },
-    { t: 'Complete with correct pronoun: "___ are playing soccer." (We / Us)', o: ['We', 'He', 'She', 'It'], c: 0 },
-    { t: 'How do you say "Perro" in English?', o: ['Dog', 'Cat', 'Cow', 'Duck'], c: 0 },
-    { t: 'What color is "Yellow"?', o: ['Amarillo', 'Azul', 'Rojo', 'Negro'], c: 0 },
-    { t: 'Translate "Open your book" into Spanish:', o: ['Abre tu libro', 'Cierra tu cuaderno', 'Escribe en la pizarra', 'Escucha al profesor'], c: 0 },
-    { t: 'What is the number "Fifteen"?', o: ['15', '50', '5', '55'], c: 0 },
-    { t: 'How do you say "Adiós" in English?', o: ['Goodbye / Bye', 'Hello', 'Please', 'Good morning'], c: 0 }
-  ].map(item => ({ ...mkQ('quiz'), text: item.t, options: item.o, correct: item.c, time: 20 }));
-
+const LS = 'quizgo_quizzes_all_v6';
+function loadQuizzes() {
   const defaults = [
-    { id: 'all_comu', title: '📖 Comunicación y Lengua Materna (20 Preguntas)', questions: makeComu20() },
-    { id: 'all_math', title: '📐 Matemática Integral - Primaria (20 Preguntas)', questions: makeMath20() },
-    { id: 'all_social', title: '🌍 Personal Social y Geografía (20 Preguntas)', questions: makeSocial20() },
-    { id: 'all_ciencia', title: '🔬 Ciencia y Tecnología (20 Preguntas)', questions: makeCiencia20() },
-    { id: 'all_arte', title: '🎨 Arte y Cultura (20 Preguntas)', questions: makeArte20() },
-    { id: 'all_efisica', title: '⚽ Educación Física y Salud (20 Preguntas)', questions: makeEdFisica20() },
-    { id: 'all_religio', title: '⛪ Educación Religiosa y Valores (20 Preguntas)', questions: makeReligiosa20() },
-    { id: 'all_eib', title: '🗣️ Castellano como Segunda Lengua - EIB (20 Preguntas)', questions: makeEIB20() },
-    { id: 'all_ingles', title: '🇬🇧 Inglés como Lengua Extranjera (20 Preguntas)', questions: makeIngles20() }
+    { id: 'p34_1', folder: 'primaria34', title: '🧮 Matemática - 3° y 4° Primaria (50 Preguntas)', questions: generate50('math') },
+    { id: 'p34_2', folder: 'primaria34', title: '📖 Comunicación - 3° y 4° Primaria (50 Preguntas)', questions: generate50('comu') },
+    { id: 'p34_3', folder: 'primaria34', title: '🌿 Ciencia y Tecnología - 3° y 4° (50 Preguntas)', questions: generate50('ciencia') },
+    { id: 'p34_4', folder: 'primaria34', title: '🌎 Personal Social - 3° y 4° Primaria (50 Preguntas)', questions: generate50('social') },
+    { id: 'p34_5', folder: 'primaria34', title: '⛪ Religión y Valores - 3° y 4° Primaria (50 Preguntas)', questions: generate50('reli') },
+    { id: 'p34_6', folder: 'primaria34', title: '🎨 Arte y Cultura - 3° y 4° Primaria (50 Preguntas)', questions: generate50('arte') }
   ];
 
   try {
     let l = JSON.parse(localStorage.getItem(LS) || 'null');
-    if (!Array.isArray(l)) l = [];
-    defaults.forEach(defQ => {
-      if (!l.some(x => x.id === defQ.id)) {
-        l.unshift(defQ);
-      }
-    });
-    // Carpeta de tablas: se agregan solo si faltan (y no fueron eliminadas por el usuario)
+    if (!Array.isArray(l) || l.length === 0) l = [];
+    
+    // Asegurar que existan los 6 quizzes por defecto si no fueron borrados
+    defaults.forEach(defQ => { if (!l.some(x => x.id === defQ.id)) l.unshift(defQ); });
+    
     const delTab = getDeletedTab();
-    TAB_DEFS.forEach(d => {
-      if (!l.some(x => x.id === d.id) && !delTab.includes(d.id)) {
-        l.push({ id: d.id, title: d.title, folder: 'tablas', questions: d.gen() });
-      }
-    });
+    TAB_DEFS.forEach(d => { if (!l.some(x => x.id === d.id) && !delTab.includes(d.id)) { l.push({ id: d.id, title: d.title, folder: 'tablas', questions: d.gen() }); } });
+    
     saveQuizzes(l);
     return l;
   } catch (e) {
@@ -778,7 +656,7 @@ function quizCard(q, i) {
           <button onclick="soloStart('${q.id}')" class="flex-1 bg-white/15 hover:bg-white/25 text-white text-xs font-black py-2.5 rounded-xl transition border border-white/20">Modo Solo</button>
         </div>
       </div>
-      <button onclick="toggleMenu(event,'menu-${i}')" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md hover:bg-black/70 text-white font-black flex items-center justify-center border border-white/20">⋮</button>
+      <button onclick="toggleMenu(event,'menu-${i}')" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md hover:bg-black/70 text-white font-black flex items-center justify-center border border-white/20 z-10">⋮</button>
       <div id="menu-${i}" class="hidden absolute top-14 right-3 w-52 glass bg-black/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl py-2 z-50 text-sm text-white">
         <button onclick="presentQuiz('${q.id}')" class="w-full text-left px-4 py-2.5 hover:bg-white/15 font-bold">👨‍🏫 Presentar en vivo</button>
         <button onclick="soloStart('${q.id}')" class="w-full text-left px-4 py-2.5 hover:bg-white/15">▶️ Jugar en solitario</button>
@@ -792,22 +670,26 @@ function quizCard(q, i) {
       </div>
     </div>`;
 }
+
 function folderCard(f, count) {
+  const bgStyle = f.img ? `background: url('${esc(f.img)}') center/cover no-repeat` : `background:linear-gradient(135deg,${f.grad.join(',')})`;
   return `
-    <div onclick="showLibrary('${f.id}')" class="card-lift slide-up glass-card rounded-3xl border border-white/20 shadow-xl cursor-pointer flex flex-col justify-between">
-      <div class="h-36 relative flex items-center justify-center overflow-hidden rounded-t-3xl" style="background:linear-gradient(135deg,${f.grad.join(',')})">
+    <div class="card-lift slide-up glass-card rounded-3xl border border-white/20 relative shadow-xl cursor-pointer flex flex-col justify-between" onclick="showLibrary('${f.id}')">
+      <div class="h-36 relative flex items-center justify-center overflow-hidden rounded-t-3xl" style="${bgStyle}">
         <div class="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/20 blur-xl"></div>
         <div class="absolute -left-6 -bottom-10 w-28 h-28 rounded-full bg-white/10 blur-xl"></div>
-        <div class="relative text-7xl drop-shadow-md">📁</div>
+        ${f.img ? '' : `<div class="relative text-7xl drop-shadow-md">${f.icon}</div>`}
         <span class="absolute bottom-3 right-3 bg-black/50 backdrop-blur-md text-white text-xs font-black px-3 py-1 rounded-full border border-white/15">${count} quizzes</span>
       </div>
-      <div class="p-5">
+      <div class="p-5 relative">
         <h3 class="font-black text-base text-white leading-snug mb-1">${f.icon} ${esc(f.name)}</h3>
         <p class="text-xs text-white/60 font-medium mb-3">${esc(f.desc)}</p>
         <div class="w-full text-center bg-white/15 text-white text-xs font-black py-2.5 rounded-xl border border-white/20">📂 Abrir carpeta</div>
       </div>
+      <button onclick="event.stopPropagation(); openFolderEdit('${f.id}')" class="absolute top-3 left-3 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md hover:bg-black/70 text-white font-black flex items-center justify-center border border-white/20 z-10 text-sm" title="Editar carpeta">✏️</button>
     </div>`;
 }
+
 window.showLibrary = folder => {
   cleanup(); ED = null;
   folder = folder || null; window.__cf = folder;
@@ -817,6 +699,7 @@ window.showLibrary = folder => {
   const list = fo ? all.filter(q => q.folder === fo.id) : all.filter(q => !FOLDERS.some(f => f.id === q.folder));
   const folderCards = fo ? '' : FOLDERS.map(f => folderCard(f, all.filter(q => q.folder === f.id).length)).join('');
   const cards = list.map((q, i) => quizCard(q, i)).join('') || (fo ? `<div class="col-span-full text-center text-white/70 font-bold py-16">La carpeta está vacía. Crea un quiz con “+ Crear quiz”.</div>` : '');
+  
   screen(`
     <div class="glass h-18 border-b border-white/10 flex items-center justify-between px-6 shadow-xl shrink-0">
       <div class="text-white font-black text-2xl tracking-tighter cursor-pointer flex items-center gap-2" onclick="showLanding()">
@@ -824,6 +707,7 @@ window.showLibrary = folder => {
       </div>
       <div class="flex gap-3">
         <button onclick="showLanding()" class="text-sm font-bold text-white/80 hover:text-white px-4 py-2 rounded-xl hover:bg-white/10 transition">Inicio</button>
+        ${!fo ? `<button onclick="newFolder()" class="bg-[#7b61ff] hover:bg-[#6849f5] text-white text-sm font-black px-5 py-2.5 rounded-xl btn3d flex items-center gap-2">+ Crear carpeta</button>` : ''}
         <button onclick="newQuiz()" class="bg-[#1368ce] hover:bg-[#0f55b0] text-white text-sm font-black px-5 py-2.5 rounded-xl btn3d flex items-center gap-2">+ Crear quiz</button>
       </div>
     </div>
@@ -840,7 +724,27 @@ window.showLibrary = folder => {
         </div>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">${folderCards}${cards}</div>
-    </div>`, 'stage-bg text-white');
+    </div>
+    
+    <div id="modal-folder" class="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center hidden p-4">
+      <div class="glass w-full max-w-[400px] rounded-3xl shadow-2xl overflow-hidden border border-white/20 slide-up">
+        <div class="p-8 flex flex-col gap-4">
+          <h3 class="font-black text-xl text-white">Editar Carpeta</h3>
+          <input id="f-name" class="w-full bg-black/40 border border-white/20 rounded-xl px-4 py-3 text-sm font-bold text-white focus:outline-none focus:border-purple-400" placeholder="Nombre de la carpeta">
+          <input id="f-img" class="w-full bg-black/40 border border-white/20 rounded-xl px-4 py-3 text-sm font-bold text-white focus:outline-none focus:border-purple-400" placeholder="URL de la imagen de fondo (opcional)">
+          <label class="w-full bg-[#1368ce] hover:bg-[#0f55b0] text-white px-4 py-3 rounded-xl cursor-pointer text-center font-bold text-sm transition">
+            O subir imagen local
+            <input type="file" accept="image/*" class="hidden" onchange="readFolderImg(this)">
+          </label>
+          <input type="hidden" id="f-id">
+        </div>
+        <div class="glass border-t border-white/10 p-4 flex justify-end gap-3">
+          <button class="glass hover:bg-white/20 font-black px-6 py-2.5 rounded-xl text-sm" onclick="$('modal-folder').classList.add('hidden')">Cancelar</button>
+          <button class="bg-[#26890c] hover:bg-[#20720a] font-black px-6 py-2.5 rounded-xl text-sm text-white" onclick="saveFolderEdit()">Guardar</button>
+        </div>
+      </div>
+    </div>
+  `, 'stage-bg text-white');
 };
 window.toggleMenu = (e, id) => {
   e.stopPropagation();
