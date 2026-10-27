@@ -146,14 +146,19 @@ const clone = o => JSON.parse(JSON.stringify(o));
 // ================= CARPETAS Y CREACIÓN =================
 const LS_FOLDERS = 'quizgo_folders_data';
 function getFolders() {
-  try {
-    let f = JSON.parse(localStorage.getItem(LS_FOLDERS));
-    if (f && Array.isArray(f) && f.length) return f;
-  } catch(e) {}
   const def = [
     { id: 'tablas', name: 'Tablas de Matemática', icon: '🔢', desc: 'Sumar, restar, multiplicar y dividir', grad: ['#ff9f1c', '#ff5a5f'] },
-    { id: 'primaria34', name: 'Primaria 3° y 4°', icon: '🎒', desc: '6 Quizzes de 50 preguntas c/u', grad: ['#4ecb71', '#2e9a4f'] }
+    { id: 'primaria34', name: 'Primaria 3° y 4°', icon: '🎒', desc: '6 Quizzes de 50 preguntas c/u', grad: ['#4ecb71', '#2e9a4f'] },
+    { id: 'ingles_abc', name: 'Pronunciación del Abecedario', icon: '🔤', desc: '4 Quizzes de Pronunciación de Letras (A-X)', grad: ['#1368ce', '#7b61ff'] }
   ];
+  try {
+    let f = JSON.parse(localStorage.getItem(LS_FOLDERS));
+    if (f && Array.isArray(f) && f.length) {
+      def.forEach(d => { if (!f.some(x => x.id === d.id)) f.push(d); });
+      localStorage.setItem(LS_FOLDERS, JSON.stringify(f));
+      return f;
+    }
+  } catch(e) {}
   localStorage.setItem(LS_FOLDERS, JSON.stringify(def));
   return def;
 }
@@ -478,7 +483,7 @@ function generate50(type) {
       '¿Qué color obtenemos al mezclar rojo y blanco?|Rosado|Naranja|Morado|Celeste|0', '¿Qué color obtenemos al mezclar azul y blanco?|Celeste|Rosado|Verde claro|Gris|0', '¿Cuáles son los colores secundarios?|Verde, naranja y morado|Rojo, azul y amarillo|Blanco, negro y gris|Marrón, rosado y celeste|0', '¿Cómo se le llama al arte de crear figuras en piedra o barro?|Escultura|Pintura|Dibujo|Música|0', '¿Qué usamos para pintar con acuarelas?|Agua y pinceles|Solo los dedos|Lápices de colores|Crayones|0',
       '¿Qué danza peruana se baila con pañuelo en mano?|Marinera|Huayno|Danza de Tijeras|Anaconda|0', '¿Qué tipo de instrumento es la guitarra?|De cuerda|De viento|De percusión|De teclado|0', '¿Qué tipo de instrumento es el tambor?|De percusión|De cuerda|De viento|De teclado|0', '¿Qué tipo de instrumento es la flauta?|De viento|De percusión|De cuerda|De teclado|0', '¿Quién dirige una orquesta musical?|El director de orquesta|El cantante principal|El guitarrista|El baterista|0',
       '¿Qué arte escénico cuenta historias con movimiento del cuerpo y música?|La Danza / El Ballet|La Escultura|La Fotografía|La Pintura|0', '¿Dónde se exhiben las obras de arte y pinturas antiguas?|En un museo|En un hospital|En un supermercado|En una comisaría|0', '¿Qué danza peruana se caracteriza por movimientos acrobáticos con unas tijeras de metal?|Danza de Tijeras|Huaylas|Festejo|Tondero|0', '¿Con qué parte del cuerpo se toca principalmente el cajón peruano?|Con las manos|Con los pies|Con la boca|Con palillos|0', '¿Qué cerámica antigua del Perú es famosa por sus "Huacos Retratos"?|Cultura Moche|Cultura Paracas|Cultura Inca|Cultura Chimú|0',
-      '¿Qué técnica artística usa pequeños trozos de vidrio o cerámica para crear una imagen?|Mosaico|Acuarela|Origami|Óleo|0', '¿Qué es el folclore?|Conjunto de tradiciones y costumbres de un pueblo|Una técnica para pintar|Un instrumento de viento|Una marca de colores|0', '¿Qué danza afroperuana es muy alegre y se baila al ritmo del cajón?|El Festejo|El Huayno|La Marinera|La Diablada|0', '¿Qué color es considerado un color frío?|Azul|Rojo|Amarillo|Naranja|0', '¿Qué color es considerado un color cálido?|Naranja|Celeste|Azul|Verde agua|0',
+      '¿Qué técnica artística usa pequeños trozos de vidrio o cerámica para crear una imagen?|Mosaico|Acuarela|Origami|Óleo|0', '¿Qué es el folclore?|Conjunto de traditions y costumbres de un pueblo|Una técnica para pintar|Un instrumento de viento|Una marca de colores|0', '¿Qué danza afroperuana es muy alegre y se baila al ritmo del cajón?|El Festejo|El Huayno|La Marinera|La Diablada|0', '¿Qué color es considerado un color frío?|Azul|Rojo|Amarillo|Naranja|0', '¿Qué color es considerado un color cálido?|Naranja|Celeste|Azul|Verde agua|0',
       '¿Cómo se llama la persona que escribe canciones o música?|Compositor|Pintor|Escultor|Bailarín|0', '¿Qué instrumento de percusión se agita con la mano y suena como semillas por dentro?|Maracas|Zampoña|Quena|Guitarra|0', '¿Qué arte se encarga de diseñar y construir edificios hermosos?|La Arquitectura|La Pintura|La Literatura|La Música|0', '¿Qué arte se refiere a escribir cuentos, poesías o novelas?|La Literatura|La Escultura|La Danza|El Teatro|0', '¿Cómo se llama el lugar donde los actores realizan una obra de teatro?|El escenario|La galería|El museo|El cine|0',
       '¿Qué es un retrato?|La pintura o dibujo de una persona|Un paisaje de la naturaleza|Una vasija de barro|Una canción andina|0', '¿Qué es un paisaje en el arte?|La pintura de la naturaleza y el entorno|La pintura de un rostro|Una escultura de piedra|Un baile típico|0', '¿Qué usamos para mezclar los colores antes de pintar?|La paleta de colores|El caballete|El lienzo|El borrador|0', '¿Cómo se llama el soporte de madera donde el pintor coloca su cuadro?|El caballete|La paleta|El pincel|La espátula|0', '¿Qué famosa tela o tapiz antiguo del Perú destaca por sus bellos colores y bordados?|Los Mantos Paracas|Los Huacos Retratos|Las Líneas de Nazca|Los Retablos|0',
       '¿Qué tipo de canto o música se hace solo con la voz humana, sin instrumentos?|A capela|Orquesta|Banda|Coro instrumental|0', '¿Qué es un mural?|Una pintura grande realizada sobre una pared|Un pequeño dibujo en papel|Una pequeña escultura|Una danza grupal|0', '¿Qué instrumento musical andino está hecho de varios tubos de caña atados juntos?|La Zampoña|La Quena|El Charango|El Cajón|0', '¿Qué pequeña guitarra andina, originalmente hecha con caparazón de armadillo, es típica de Perú y Bolivia?|El Charango|La Guitarra criolla|El Ukelele|El Arpa andina|0', '¿Qué nombre recibe el arte de capturar imágenes con una cámara?|La Fotografía|La Pintura|El Dibujo|El Teatro|0'
@@ -488,7 +493,75 @@ function generate50(type) {
   return list;
 }
 
-const LS = 'quizgo_quizzes_all_v8';
+// ================= GENERADOR DE QUIZZES DE INGLÉS (PRONUNCIACIÓN DE LETRAS) =================
+function generateABC(part) {
+  let list = [];
+  const add = (t, o, c) => {
+    let arr = o.map((val, idx) => ({ val, ok: idx === c }));
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    list.push({ ...mkQ('quiz'), text: t, options: arr.map(x => x.val), correct: arr.findIndex(x => x.ok), time: 20 });
+  };
+
+  if (part === 1) { // A, B, C, D, E, F
+    add('¿Cómo se pronuncia la letra "A" en inglés?', ['Ei', 'A', 'Ai', 'E'], 0);
+    add('¿Qué letra en inglés se pronuncia "Ei"?', ['A', 'E', 'I', 'O'], 0);
+    add('¿Cuál es la pronunciación correcta de la letra "B"?', ['Bi', 'Be', 'Vi', 'Pi'], 0);
+    add('Si escuchas la pronunciación "Bi", ¿a qué letra corresponde?', ['B', 'V', 'P', 'D'], 0);
+    add('¿Cómo se pronuncia la letra "C" en inglés?', ['Si', 'Ce', 'Ci', 'Ki'], 0);
+    add('¿Qué letra en inglés se pronuncia "Si"?', ['C', 'S', 'Z', 'X'], 0);
+    add('¿Cuál es la pronunciación correcta de la letra "D"?', ['Di', 'De', 'Bi', 'Ti'], 0);
+    add('Si escuchas "Di", ¿de qué letra se trata en inglés?', ['D', 'B', 'T', 'G'], 0);
+    add('¿Cómo se pronuncia la letra "E" en inglés?', ['I', 'E', 'Ei', 'Ai'], 0);
+    add('¿Qué letra en inglés se pronuncia como la vocal "I" en español?', ['E', 'I', 'A', 'U'], 0);
+    add('¿Cuál es la pronunciación correcta de la letra "F"?', ['Ef', 'Fe', 'Fi', 'Efe'], 0);
+    add('Si escuchas la pronunciación "Ef", ¿qué letra es en inglés?', ['F', 'S', 'X', 'E'], 0);
+  } else if (part === 2) { // G, H, I, J, K, L
+    add('¿Cómo se pronuncia la letra "G" en inglés?', ['Yi', 'Ge', 'Gi', 'Ji'], 0);
+    add('¿Qué letra en inglés se pronuncia "Yi"?', ['G', 'J', 'Y', 'H'], 0);
+    add('¿Cuál es la pronunciación de la letra "H" en inglés?', ['Eich', 'Ache', 'Hache', 'Ech'], 0);
+    add('Si alguien dice "Eich", ¿a qué letra se refiere en inglés?', ['H', 'A', 'K', 'X'], 0);
+    add('¿Cómo se pronuncia la letra "I" en inglés?', ['Ai', 'I', 'Ei', 'Oui'], 0);
+    add('¿Qué letra en inglés se pronuncia "Ai"?', ['I', 'E', 'A', 'Y'], 0);
+    add('¿Cómo se pronuncia la letra "J" en inglés?', ['Yei', 'Jota', 'Ji', 'Gei'], 0);
+    add('Si escuchas "Yei", ¿a qué letra corresponde en inglés?', ['J', 'G', 'Y', 'K'], 0);
+    add('¿Cuál es la pronunciación correcta de la letra "K"?', ['Kei', 'Ca', 'Ki', 'Kaf'], 0);
+    add('¿Qué letra en inglés suena como "Kei"?', ['K', 'Q', 'C', 'G'], 0);
+    add('¿Cómo se pronuncia la letra "L" en inglés?', ['El', 'Ele', 'Li', 'Lu'], 0);
+    add('Si escuchas la pronunciación "El", ¿qué letra es?', ['L', 'E', 'R', 'M'], 0);
+  } else if (part === 3) { // M, N, O, P, Q, R
+    add('¿Cómo se pronuncia la letra "M" en inglés?', ['Em', 'Eme', 'Mi', 'Mu'], 0);
+    add('¿Qué letra en inglés se pronuncia "Em"?', ['M', 'N', 'E', 'W'], 0);
+    add('¿Cuál es la pronunciación de la letra "N" en inglés?', ['En', 'Ene', 'Ni', 'Nu'], 0);
+    add('Si escuchas "En", ¿a qué letra corresponde?', ['N', 'M', 'E', 'L'], 0);
+    add('¿Cómo se pronuncia la letra "O" en inglés?', ['Ou', 'O', 'Au', 'U'], 0);
+    add('¿Qué letra en inglés se pronuncia "Ou"?', ['O', 'U', 'W', 'Q'], 0);
+    add('¿Cuál es la pronunciación correcta de la letra "P"?', ['Pi', 'Pe', 'Pu', 'Bi'], 0);
+    add('Si escuchas "Pi", ¿qué letra se menciona en inglés?', ['P', 'B', 'T', 'D'], 0);
+    add('¿Cómo se pronuncia la letra "Q" en inglés?', ['Ciu', 'Cu', 'Kiu', 'Que'], 0);
+    add('¿Qué letra en inglés se pronuncia "Ciu" (o "Kiu")?', ['Q', 'K', 'C', 'U'], 0);
+    add('¿Cuál es la pronunciación correcta de la letra "R"?', ['Ar', 'Er', 'Ere', 'Ri'], 0);
+    add('Si escuchas "Ar", ¿de qué letra en inglés se trata?', ['R', 'A', 'H', 'L'], 0);
+  } else if (part === 4) { // S, T, U, V, W, X
+    add('¿Cómo se pronuncia la letra "S" en inglés?', ['Es', 'Ese', 'Si', 'Su'], 0);
+    add('¿Qué letra en inglés se pronuncia "Es"?', ['S', 'C', 'X', 'Z'], 0);
+    add('¿Cuál es la pronunciación de la letra "T" en inglés?', ['Ti', 'Te', 'Tu', 'Di'], 0);
+    add('Si escuchas "Ti", ¿a qué letra corresponde en inglés?', ['T', 'D', 'P', 'C'], 0);
+    add('¿Cómo se pronuncia la letra "U" en inglés?', ['Iu', 'U', 'Ou', 'Yu'], 0);
+    add('¿Qué letra en inglés se pronuncia "Iu"?', ['U', 'W', 'Y', 'O'], 0);
+    add('¿Cuál es la pronunciación de la letra "V" en inglés?', ['Vi', 'Ve', 'B', 'Uv'], 0);
+    add('Si escuchas "Vi" (con sonido labiodental), ¿qué letra es?', ['V', 'B', 'F', 'P'], 0);
+    add('¿Cómo se pronuncia la letra "W" en inglés?', ['Dabliu', 'Doble u', 'Uve doble', 'Wa'], 0);
+    add('¿Qué letra en inglés se pronuncia "Dabliu"?', ['W', 'V', 'U', 'M'], 0);
+    add('¿Cuál es la pronunciación correcta de la letra "X"?', ['Eks', 'Equis', 'Xi', 'Sks'], 0);
+    add('Si escuchas "Eks", ¿de qué letra se trata?', ['X', 'S', 'K', 'Z'], 0);
+  }
+  return list;
+}
+
+const LS = 'quizgo_quizzes_all_v9';
 function loadQuizzes() {
   const defaults = [
     { id: 'p34_1', folder: 'primaria34', title: '🧮 Matemática - 3° y 4° Primaria (50 Preguntas)', questions: generate50('math') },
@@ -496,15 +569,19 @@ function loadQuizzes() {
     { id: 'p34_3', folder: 'primaria34', title: '🌿 Ciencia y Tecnología - 3° y 4° (50 Preguntas)', questions: generate50('ciencia') },
     { id: 'p34_4', folder: 'primaria34', title: '🌎 Personal Social - 3° y 4° Primaria (50 Preguntas)', questions: generate50('social') },
     { id: 'p34_5', folder: 'primaria34', title: '⛪ Religión y Valores - 3° y 4° Primaria (50 Preguntas)', questions: generate50('reli') },
-    { id: 'p34_6', folder: 'primaria34', title: '🎨 Arte y Cultura - 3° y 4° Primaria (50 Preguntas)', questions: generate50('arte') }
+    { id: 'p34_6', folder: 'primaria34', title: '🎨 Arte y Cultura - 3° y 4° Primaria (50 Preguntas)', questions: generate50('arte') },
+    { id: 'abc_1', folder: 'ingles_abc', title: '🔤 Pronunciación Inglés 1 (A, B, C, D, E, F)', questions: generateABC(1) },
+    { id: 'abc_2', folder: 'ingles_abc', title: '🔤 Pronunciación Inglés 2 (G, H, I, J, K, L)', questions: generateABC(2) },
+    { id: 'abc_3', folder: 'ingles_abc', title: '🔤 Pronunciación Inglés 3 (M, N, O, P, Q, R)', questions: generateABC(3) },
+    { id: 'abc_4', folder: 'ingles_abc', title: '🔤 Pronunciación Inglés 4 (S, T, U, V, W, X)', questions: generateABC(4) }
   ];
 
   try {
     let l = JSON.parse(localStorage.getItem(LS) || 'null');
     if (!Array.isArray(l) || l.length === 0) l = [];
     
-    // Asegurar que existan los 6 quizzes por defecto si no fueron borrados
-    defaults.forEach(defQ => { if (!l.some(x => x.id === defQ.id)) l.unshift(defQ); });
+    // Asegurar que existan todos los quizzes por defecto si no fueron borrados
+    defaults.forEach(defQ => { if (!l.some(x => x.id === defQ.id)) l.push(defQ); });
     
     const delTab = getDeletedTab();
     TAB_DEFS.forEach(d => { if (!l.some(x => x.id === d.id) && !delTab.includes(d.id)) { l.push({ id: d.id, title: d.title, folder: 'tablas', questions: d.gen() }); } });
