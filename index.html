@@ -1247,9 +1247,14 @@ window.showLanding = () => {
         <span class="bg-gradient-to-r from-purple-300 via-pink-300 to-amber-300 bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(255,255,255,0.3)]">QuizGo</span>
         <span class="text-[10px] bg-gradient-to-r from-pink-500 to-purple-600 text-white px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider shadow-md animate-pulse">PRO 3D</span>
       </div>
-      <button onclick="showLibrary()" class="bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white text-sm font-black px-6 py-3 rounded-2xl btn3d flex items-center gap-2 shadow-lg transition transform hover:scale-105">
-        <span>✏️</span> <span>Biblioteca & Crear</span>
-      </button>
+      <div class="flex items-center gap-3">
+        <button id="btn-juegos" onclick="showGames()" class="bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 hover:from-amber-300 hover:to-pink-400 text-white text-sm font-black px-6 py-3 rounded-2xl btn3d flex items-center gap-2 shadow-lg transition transform hover:scale-105">
+          <span>🎲</span> <span>Juegos</span>
+        </button>
+        <button onclick="showLibrary()" class="bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white text-sm font-black px-6 py-3 rounded-2xl btn3d flex items-center gap-2 shadow-lg transition transform hover:scale-105">
+          <span>✏️</span> <span>Biblioteca & Crear</span>
+        </button>
+      </div>
     </div>
 
     <!-- Contenido Central -->
@@ -2026,6 +2031,292 @@ window.soloEnd = () => {
 };
 
 initAuth();
+</script>
+
+<!-- ================= JUEGOS TRADICIONALES (Tres en raya, Memoria, Piedra/Papel/Tijera) ================= -->
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const draw = (html) => {
+    const a = $('app');
+    a.className = 'w-full h-full flex flex-col relative overflow-auto stage-bg text-white';
+    a.innerHTML = html;
+  };
+  let timer = null;
+  const stop = () => { clearInterval(timer); timer = null; };
+
+  // Al volver al inicio desde los juegos, detener temporizadores
+  function patch() {
+    if (!window.showLanding || window.showLanding.__patched) return false;
+    const orig = window.showLanding;
+    window.showLanding = function () { stop(); orig.apply(this, arguments); };
+    window.showLanding.__patched = true;
+    return true;
+  }
+  const poll = setInterval(() => { if (patch()) clearInterval(poll); }, 100);
+
+  // ================= MENÚ DE JUEGOS =================
+  const topBar = (title) => `
+    <div class="glass border-b border-white/10 flex items-center justify-between px-6 py-4 shadow-xl shrink-0">
+      <div class="font-black text-2xl tracking-tighter cursor-pointer" onclick="showLanding()"><span class="bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">QuizGo</span> <span class="text-white/70 text-base font-bold">· ${title}</span></div>
+      <div class="flex gap-2">
+        <button onclick="showGames()" class="text-sm font-bold text-white/80 hover:text-white px-4 py-2 rounded-xl hover:bg-white/10 transition">🎲 Juegos</button>
+        <button onclick="showLanding()" class="text-sm font-bold text-white/80 hover:text-white px-4 py-2 rounded-xl hover:bg-white/10 transition">Inicio</button>
+      </div>
+    </div>`;
+  const lvlBtn = (fn, arg, label, sub, grad) => `
+    <button onclick="${fn}(${arg})" class="btn3d rounded-2xl px-5 py-4 text-left font-black text-white w-full" style="background:linear-gradient(135deg,${grad[0]},${grad[1]})">
+      <div class="text-lg">${label}</div><div class="text-xs font-semibold opacity-80">${sub}</div></button>`;
+
+  window.showGames = () => {
+    stop();
+    const card = (icon, name, desc, fn, grad) => `
+      <div onclick="${fn}()" class="card-lift slide-up glass-card rounded-3xl border border-white/20 cursor-pointer overflow-hidden shadow-xl">
+        <div class="h-36 flex items-center justify-center text-7xl" style="background:linear-gradient(135deg,${grad[0]},${grad[1]})">${icon}</div>
+        <div class="p-5"><h3 class="font-black text-lg mb-1">${name}</h3><p class="text-xs text-white/60 font-medium mb-3">${desc}</p>
+        <div class="text-center bg-white/15 text-xs font-black py-2.5 rounded-xl border border-white/20">▶ Jugar</div></div></div>`;
+    draw(`${topBar('Juegos tradicionales')}
+      <div class="flex-1 p-6 md:p-8 overflow-y-auto">
+        <h1 class="text-3xl font-black mb-1">Juegos tradicionales</h1>
+        <p class="text-white/60 text-sm font-medium mb-8">Elige un juego y un nivel de dificultad para divertirte.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl">
+          ${card('❌⭕', 'Tres en raya', '4 niveles de dificultad + modo 2 jugadores', 'tttMenu', ['#46178f', '#9b51e0'])}
+          ${card('🧠', 'Memoria', 'Encuentra las parejas · 4 niveles', 'memMenu', ['#0f8b8d', '#20b2aa'])}
+          ${card('✊✋✌️', 'Piedra, papel o tijera', '3 niveles de dificultad', 'rpsMenu', ['#e21b3c', '#ff9f1c'])}
+        </div>
+      </div>`);
+  };
+
+  // ================= TRES EN RAYA =================
+  const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  const winner = b => { for (const [a, c, d] of LINES) if (b[a] && b[a] === b[c] && b[a] === b[d]) return { w: b[a], line: [a, c, d] }; return b.every(x => x) ? { w: 'T' } : null; };
+  const empties = b => b.map((v, i) => v ? -1 : i).filter(i => i >= 0);
+  const rnd = a => a[Math.floor(Math.random() * a.length)];
+  function minimax(b, turn, ai) {
+    const r = winner(b);
+    if (r) return r.w === ai ? 1 : r.w === 'T' ? 0 : -1;
+    const hu = ai === 'O' ? 'X' : 'O';
+    let best = turn === ai ? -2 : 2;
+    for (const i of empties(b)) {
+      b[i] = turn;
+      const s = minimax(b, turn === ai ? hu : ai, ai);
+      b[i] = null;
+      best = turn === ai ? Math.max(best, s) : Math.min(best, s);
+    }
+    return best;
+  }
+  function bestMove(b, ai) {
+    const hu = ai === 'O' ? 'X' : 'O', moves = empties(b);
+    let bestS = -2, picks = [];
+    for (const i of moves) {
+      b[i] = ai; const s = minimax(b, hu, ai); b[i] = null;
+      if (s > bestS) { bestS = s; picks = [i]; } else if (s === bestS) picks.push(i);
+    }
+    return rnd(picks);
+  }
+  function quickMove(b, ai) { // gana o bloquea si puede
+    const hu = ai === 'O' ? 'X' : 'O';
+    for (const who of [ai, hu]) for (const i of empties(b)) { b[i] = who; const w = winner(b); b[i] = null; if (w && w.w === who) return i; }
+    return null;
+  }
+  function aiMove(b, level) {
+    const ai = 'O', m = empties(b);
+    if (level === 1) return rnd(m);
+    if (level === 2) { const q = quickMove(b, ai); return (q !== null && Math.random() < 0.7) ? q : rnd(m); }
+    if (level === 3) return Math.random() < 0.85 ? bestMove(b, ai) : rnd(m);
+    return bestMove(b, ai);
+  }
+  const TT = { level: 1, b: [], turn: 'X', over: false, sc: { X: 0, O: 0, T: 0 }, line: [] };
+  const LV_NAMES = { 0: '👥 2 jugadores', 1: '🟢 Fácil', 2: '🟡 Medio', 3: '🟠 Difícil', 4: '🔴 Imposible' };
+
+  window.tttMenu = () => {
+    stop();
+    draw(`${topBar('Tres en raya')}
+      <div class="flex-1 flex flex-col items-center justify-center p-6">
+        <div class="text-6xl mb-2">❌⭕</div>
+        <h1 class="text-4xl font-black mb-1">Tres en raya</h1>
+        <p class="text-white/70 font-semibold mb-6">Elige la dificultad</p>
+        <div class="grid gap-3 w-full max-w-sm">
+          ${lvlBtn('tttStart', 1, '🟢 Fácil', 'La computadora juega al azar', ['#26890c', '#4ecb71'])}
+          ${lvlBtn('tttStart', 2, '🟡 Medio', 'A veces bloquea y gana', ['#d89e00', '#f2c94c'])}
+          ${lvlBtn('tttStart', 3, '🟠 Difícil', 'Casi no se equivoca', ['#d9650b', '#ff9f1c'])}
+          ${lvlBtn('tttStart', 4, '🔴 Imposible', 'Perfecta: ¡no se puede ganar!', ['#b0102b', '#e21b3c'])}
+          ${lvlBtn('tttStart', 0, '👥 2 jugadores', 'Juega con un amigo en el mismo dispositivo', ['#46178f', '#9b51e0'])}
+        </div></div>`);
+  };
+  window.tttStart = lv => { TT.level = lv; TT.sc = { X: 0, O: 0, T: 0 }; tttNew(); };
+  function tttNew() {
+    TT.b = Array(9).fill(null); TT.turn = 'X'; TT.over = false; TT.line = [];
+    tttRender();
+  }
+  function tttRender(msg) {
+    const status = msg || (TT.over ? '' : (TT.level === 0 ? `Turno de ${TT.turn === 'X' ? '❌' : '⭕'}` : (TT.turn === 'X' ? 'Tu turno ❌' : 'Pensando…')));
+    const names = TT.level === 0 ? ['Jugador ❌', 'Jugador ⭕'] : ['Tú ❌', 'PC ⭕'];
+    draw(`${topBar('Tres en raya')}
+      <div class="flex-1 flex flex-col items-center justify-center p-4">
+        <div class="text-sm font-black opacity-80 mb-3">${LV_NAMES[TT.level]}</div>
+        <div class="flex gap-3 mb-4 text-sm font-black">
+          <div class="glass rounded-xl px-4 py-2">${names[0]}: ${TT.sc.X}</div>
+          <div class="glass rounded-xl px-4 py-2">Empates: ${TT.sc.T}</div>
+          <div class="glass rounded-xl px-4 py-2">${names[1]}: ${TT.sc.O}</div>
+        </div>
+        <div class="text-2xl font-black mb-4 h-8">${status}</div>
+        <div class="grid grid-cols-3 gap-3 w-[min(86vw,360px)]">
+          ${TT.b.map((v, i) => `<button onclick="tttClick(${i})" class="aspect-square glass rounded-2xl text-6xl font-black flex items-center justify-center transition hover:bg-white/20 ${TT.line.includes(i) ? 'ring-4 ring-green-400 bg-green-500/30' : ''}">${v === 'X' ? '❌' : v === 'O' ? '⭕' : ''}</button>`).join('')}
+        </div>
+        <div class="flex gap-3 mt-6">
+          <button onclick="tttNewRound()" class="bg-[#26890c] text-white font-black px-6 py-3 rounded-2xl btn3d">🔄 Nueva ronda</button>
+          <button onclick="tttMenu()" class="glass font-black px-6 py-3 rounded-2xl hover:bg-white/20 transition">Cambiar nivel</button>
+        </div>
+      </div>`);
+  }
+  window.tttNewRound = tttNew;
+  function tttEnd() {
+    const r = winner(TT.b); if (!r) return false;
+    TT.over = true; TT.sc[r.w]++; TT.line = r.line || [];
+    let msg;
+    if (r.w === 'T') msg = '🤝 ¡Empate!';
+    else if (TT.level === 0) msg = `🏆 ¡Ganó ${r.w === 'X' ? '❌' : '⭕'}!`;
+    else msg = r.w === 'X' ? '🏆 ¡Ganaste!' : '😅 Ganó la PC';
+    tttRender(msg); return true;
+  }
+  window.tttClick = i => {
+    if (TT.over || TT.b[i]) return;
+    if (TT.level !== 0 && TT.turn !== 'X') return;
+    TT.b[i] = TT.turn;
+    if (tttEnd()) return;
+    TT.turn = TT.turn === 'X' ? 'O' : 'X';
+    tttRender();
+    if (TT.level !== 0 && TT.turn === 'O') {
+      setTimeout(() => {
+        if (TT.over || !$('app') || !document.querySelector('[onclick^="tttClick"]')) return;
+        TT.b[aiMove(TT.b, TT.level)] = 'O';
+        if (tttEnd()) return;
+        TT.turn = 'X'; tttRender();
+      }, 450);
+    }
+  };
+
+  // ================= MEMORIA =================
+  const EMO = ['🐶','🐱','🦁','🐸','🐵','🐼','🦊','🐯','🐰','🐨','🐷','🐙','🦄','🐢','🦋','🐧'];
+  const MEM = { pairs: 6, cards: [], open: [], found: 0, moves: 0, lock: false, t0: 0 };
+  window.memMenu = () => {
+    stop();
+    draw(`${topBar('Memoria')}
+      <div class="flex-1 flex flex-col items-center justify-center p-6">
+        <div class="text-6xl mb-2">🧠</div><h1 class="text-4xl font-black mb-1">Memoria</h1>
+        <p class="text-white/70 font-semibold mb-6">Encuentra todas las parejas</p>
+        <div class="grid gap-3 w-full max-w-sm">
+          ${lvlBtn('memStart', 6, '🟢 Fácil', '6 parejas', ['#26890c', '#4ecb71'])}
+          ${lvlBtn('memStart', 8, '🟡 Medio', '8 parejas', ['#d89e00', '#f2c94c'])}
+          ${lvlBtn('memStart', 12, '🟠 Difícil', '12 parejas', ['#d9650b', '#ff9f1c'])}
+          ${lvlBtn('memStart', 16, '🔴 Experto', '16 parejas', ['#b0102b', '#e21b3c'])}
+        </div></div>`);
+  };
+  window.memStart = n => {
+    MEM.pairs = n;
+    const a = EMO.slice(0, n).flatMap(e => [e, e]);
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    MEM.cards = a.map(e => ({ e, up: false, done: false }));
+    MEM.open = []; MEM.found = 0; MEM.moves = 0; MEM.lock = false; MEM.t0 = Date.now();
+    memRender();
+    stop(); timer = setInterval(() => { const t = $('mem-t'); if (t) t.textContent = Math.floor((Date.now() - MEM.t0) / 1000) + 's'; }, 500);
+  };
+  function memRender(msg) {
+    const cols = MEM.pairs <= 8 ? 4 : 6;
+    draw(`${topBar('Memoria')}
+      <div class="flex-1 flex flex-col items-center p-4 overflow-y-auto">
+        <div class="flex gap-3 my-3 text-sm font-black">
+          <div class="glass rounded-xl px-4 py-2">Movimientos: ${MEM.moves}</div>
+          <div class="glass rounded-xl px-4 py-2">Parejas: ${MEM.found}/${MEM.pairs}</div>
+          <div class="glass rounded-xl px-4 py-2">⏱ <span id="mem-t">${Math.floor((Date.now() - MEM.t0) / 1000)}s</span></div>
+        </div>
+        ${msg ? `<div class="text-2xl font-black mb-3 pop">${msg}</div>` : ''}
+        <div class="grid gap-2 w-[min(94vw,520px)]" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">
+          ${MEM.cards.map((c, i) => `<button onclick="memClick(${i})" class="aspect-square rounded-2xl text-4xl flex items-center justify-center font-black transition ${c.up || c.done ? (c.done ? 'bg-green-500/40 border border-green-300' : 'bg-white/25 border border-white/40') : 'bg-gradient-to-br from-purple-600 to-pink-600 hover:scale-105'}">${c.up || c.done ? c.e : '?'}</button>`).join('')}
+        </div>
+        <div class="flex gap-3 mt-5 pb-4">
+          <button onclick="memStart(${MEM.pairs})" class="bg-[#26890c] text-white font-black px-6 py-3 rounded-2xl btn3d">🔄 Reiniciar</button>
+          <button onclick="memMenu()" class="glass font-black px-6 py-3 rounded-2xl hover:bg-white/20 transition">Cambiar nivel</button>
+        </div>
+      </div>`);
+  }
+  window.memClick = i => {
+    const c = MEM.cards[i];
+    if (MEM.lock || c.up || c.done) return;
+    c.up = true; MEM.open.push(i);
+    if (MEM.open.length < 2) return memRender();
+    MEM.moves++; MEM.lock = true;
+    const [a, b] = MEM.open;
+    if (MEM.cards[a].e === MEM.cards[b].e) {
+      MEM.cards[a].done = MEM.cards[b].done = true; MEM.cards[a].up = MEM.cards[b].up = false;
+      MEM.found++; MEM.open = []; MEM.lock = false;
+      if (MEM.found === MEM.pairs) { stop(); return memRender(`🏆 ¡Ganaste en ${MEM.moves} movimientos y ${Math.floor((Date.now() - MEM.t0) / 1000)}s!`); }
+      return memRender();
+    }
+    memRender();
+    setTimeout(() => {
+      MEM.cards[a].up = MEM.cards[b].up = false; MEM.open = []; MEM.lock = false;
+      if ($('mem-t')) memRender();
+    }, 800);
+  };
+
+  // ================= PIEDRA, PAPEL O TIJERA =================
+  const RPS_E = { r: '✊', p: '✋', s: '✌️' }, BEATS = { r: 's', p: 'r', s: 'p' }, BEATEN_BY = { r: 'p', p: 's', s: 'r' };
+  const RPS = { level: 1, you: 0, pc: 0, hist: [], last: null, over: false, goal: 3 };
+  window.rpsMenu = () => {
+    stop();
+    draw(`${topBar('Piedra, papel o tijera')}
+      <div class="flex-1 flex flex-col items-center justify-center p-6">
+        <div class="text-6xl mb-2">✊✋✌️</div><h1 class="text-3xl font-black mb-1">Piedra, papel o tijera</h1>
+        <p class="text-white/70 font-semibold mb-6">Gana al mejor de la serie</p>
+        <div class="grid gap-3 w-full max-w-sm">
+          ${lvlBtn('rpsStart', 1, '🟢 Fácil', 'La PC elige al azar · a 3 puntos', ['#26890c', '#4ecb71'])}
+          ${lvlBtn('rpsStart', 2, '🟡 Medio', 'La PC intenta adivinar tu patrón · a 5 puntos', ['#d89e00', '#f2c94c'])}
+          ${lvlBtn('rpsStart', 3, '🔴 Difícil', 'La PC analiza todas tus jugadas · a 7 puntos', ['#b0102b', '#e21b3c'])}
+        </div></div>`);
+  };
+  window.rpsStart = lv => { Object.assign(RPS, { level: lv, you: 0, pc: 0, hist: [], last: null, over: false, goal: [0, 3, 5, 7][lv] }); rpsRender(); };
+  function rpsPick() {
+    const k = ['r', 'p', 's'];
+    if (RPS.level === 1 || !RPS.hist.length) return rnd(k);
+    if (RPS.level === 2) { // contraataca tu última jugada el 60% de las veces
+      return Math.random() < 0.6 ? BEATEN_BY[RPS.hist[RPS.hist.length - 1]] : rnd(k);
+    }
+    const cnt = { r: 0, p: 0, s: 0 }; RPS.hist.forEach(h => cnt[h]++);
+    const likely = k.sort((a, b) => cnt[b] - cnt[a])[0];
+    return Math.random() < 0.85 ? BEATEN_BY[likely] : rnd(k);
+  }
+  function rpsRender() {
+    const l = RPS.last;
+    draw(`${topBar('Piedra, papel o tijera')}
+      <div class="flex-1 flex flex-col items-center justify-center p-4 text-center">
+        <div class="flex gap-3 mb-5 text-sm font-black">
+          <div class="glass rounded-xl px-5 py-2">Tú: ${RPS.you}</div>
+          <div class="glass rounded-xl px-5 py-2">Meta: ${RPS.goal}</div>
+          <div class="glass rounded-xl px-5 py-2">PC: ${RPS.pc}</div>
+        </div>
+        <div class="flex items-center gap-8 text-7xl mb-3 h-24">${l ? `<span class="pop">${RPS_E[l.you]}</span><span class="text-3xl opacity-60">VS</span><span class="pop">${RPS_E[l.pc]}</span>` : '❓'}</div>
+        <div class="text-2xl font-black mb-6 h-8">${RPS.over ? (RPS.you > RPS.pc ? '🏆 ¡Ganaste la serie!' : '😅 La PC ganó la serie') : l ? (l.res === 'w' ? '✅ ¡Ganaste la ronda!' : l.res === 'l' ? '❌ Perdiste la ronda' : '🤝 Empate') : 'Elige tu jugada'}</div>
+        <div class="flex gap-4 mb-6">
+          ${['r', 'p', 's'].map(k => `<button ${RPS.over ? 'disabled' : ''} onclick="rpsPlay('${k}')" class="glass rounded-3xl w-24 h-24 text-5xl hover:bg-white/25 transition hover:scale-110 ${RPS.over ? 'opacity-40' : ''}">${RPS_E[k]}</button>`).join('')}
+        </div>
+        <div class="flex gap-3">
+          <button onclick="rpsStart(${RPS.level})" class="bg-[#26890c] text-white font-black px-6 py-3 rounded-2xl btn3d">🔄 Reiniciar</button>
+          <button onclick="rpsMenu()" class="glass font-black px-6 py-3 rounded-2xl hover:bg-white/20 transition">Cambiar nivel</button>
+        </div>
+      </div>`);
+  }
+  window.rpsPlay = y => {
+    if (RPS.over) return;
+    const pc = rpsPick();
+    const res = y === pc ? 't' : BEATS[y] === pc ? 'w' : 'l';
+    if (res === 'w') RPS.you++; else if (res === 'l') RPS.pc++;
+    RPS.hist.push(y); RPS.last = { you: y, pc, res };
+    if (RPS.you >= RPS.goal || RPS.pc >= RPS.goal) RPS.over = true;
+    rpsRender();
+  };
+})();
 </script>
 </body>
 </html>
